@@ -114,6 +114,42 @@ function ReputationRing({ nivel, puntaje, size = 120 }: any) {
   )
 }
 
+function BottomNav({ vista, setVista, abrirPerfil }: any) {
+  const item = (label: string, activo: boolean, onClick: any) => (
+    <button onClick={onClick} style={{
+      background:'none', border:'none', cursor:'pointer', flex:1,
+      display:'flex', flexDirection:'column', alignItems:'center', gap:4,
+      padding:'8px 0', color: activo ? T.gold : T.muted, fontFamily:T.font
+    }}>
+      <div style={{ fontSize:11, fontWeight: activo ? 800 : 600 }}>{label}</div>
+    </button>
+  )
+
+  return (
+    <div style={{
+      position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)',
+      width:'100%', maxWidth:430, background:T.s1, borderTop:'1px solid '+T.border,
+      display:'flex', alignItems:'center', padding:'6px 8px calc(6px + env(safe-area-inset-bottom))',
+      zIndex:70
+    }}>
+      {item('Inicio', vista==='home', ()=>setVista('home'))}
+      {item('Mapa', vista==='mapa', ()=>setVista('mapa'))}
+
+      <button onClick={()=>setVista('publicar')} style={{
+        width:52, height:52, borderRadius:'50%', background:G, border:'4px solid '+T.s1,
+        color:'#0a0a0a', fontSize:26, fontWeight:800, cursor:'pointer', flexShrink:0,
+        display:'flex', alignItems:'center', justifyContent:'center', marginTop:-24,
+        boxShadow:'0 4px 14px '+T.glow
+      }}>
+        +
+      </button>
+
+      {item('Ajustes', vista==='configuracion', ()=>setVista('configuracion'))}
+      {item('Perfil', vista==='perfil', abrirPerfil)}
+    </div>
+  )
+}
+
 function AuthScreen({ onAuth }: any) {
   const [mode, setMode] = useState('login')
   const [email, setEmail] = useState('')
@@ -491,7 +527,7 @@ export default function App() {
 
   if (vista === 'configuracion') {
     return (
-      <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', paddingBottom:40 }}>
+      <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', paddingBottom:100 }}>
         <link href={FONTS} rel="stylesheet" />
         <div style={{ background:T.s1, padding:'16px 18px', borderBottom:'1px solid '+T.border, display:'flex', alignItems:'center', gap:12, position:'sticky', top:0, zIndex:60 }}>
           <button onClick={()=>setVista('home')} style={{ background:'none', border:'none', color:T.gold, cursor:'pointer', fontSize:20, fontWeight:'bold' }}>Volver</button>
@@ -555,6 +591,26 @@ export default function App() {
             {mensajeConfig && <p style={{ marginTop:14, color:T.red, fontSize:13, textAlign:'center' }}>{mensajeConfig}</p>}
           </div>
         </div>
+        <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} />
+      </div>
+    )
+  }
+
+  if (vista === 'mapa') {
+    return (
+      <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', paddingBottom:100 }}>
+        <link href={FONTS} rel="stylesheet" />
+        <div style={{ background:T.s1, padding:'16px 18px', borderBottom:'1px solid '+T.border, display:'flex', alignItems:'center', gap:12, position:'sticky', top:0, zIndex:60 }}>
+          <div style={{ fontWeight:700, fontSize:17, flex:1 }}>Mapa</div>
+        </div>
+        <div style={{ padding:'60px 24px', textAlign:'center' }}>
+          <div style={{ fontSize:40, marginBottom:16, color:T.gold, fontWeight:'bold' }}>TCL</div>
+          <div style={{ fontSize:16, fontWeight:700, marginBottom:8 }}>Mapa de publicaciones cercanas</div>
+          <div style={{ fontSize:13, color:T.muted, lineHeight:1.6 }}>
+            Proximamente vas a poder ver los productos cerca tuyo en un mapa. Estamos construyendo esta funcion.
+          </div>
+        </div>
+        <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} />
       </div>
     )
   }
@@ -564,10 +620,9 @@ export default function App() {
     const info = NIVELES[nivel] || NIVELES['Nuevo']
 
     return (
-      <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', paddingBottom:40 }}>
+      <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', paddingBottom:100 }}>
         <link href={FONTS} rel="stylesheet" />
         <div style={{ background:T.s1, padding:'16px 18px', borderBottom:'1px solid '+T.border, display:'flex', alignItems:'center', gap:12, position:'sticky', top:0, zIndex:60 }}>
-          <button onClick={()=>setVista('home')} style={{ background:'none', border:'none', color:T.gold, cursor:'pointer', fontSize:20, fontWeight:'bold' }}>Volver</button>
           <div style={{ fontWeight:700, fontSize:17, flex:1 }}>Mi perfil</div>
           <button onClick={abrirEditarPerfil} style={{ background:T.s2, border:'1px solid '+T.border2, color:T.gold, borderRadius:12, padding:'6px 12px', fontSize:12, fontWeight:700, cursor:'pointer' }}>
             Editar
@@ -639,30 +694,20 @@ export default function App() {
             ))}
           </div>
         )}
+        <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} />
       </div>
     )
   }
 
   return (
-    <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto' }}>
+    <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', paddingBottom:100 }}>
       <link href={FONTS} rel="stylesheet" />
 
       <div style={{ background:T.s1, padding:'14px 18px', borderBottom:'1px solid '+T.border, position:'sticky', top:0, zIndex:60 }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
           <div>
             <div style={{ fontFamily:"'Libre Baskerville',serif", fontSize:20, background:G, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', fontWeight:700 }}>Tu Changarro Libre</div>
-            <div style={{ fontSize:11, color:T.muted }}>Hola, {userName}</div>
-          </div>
-          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-            <button onClick={()=>setVista('configuracion')} style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:20, padding:'8px 14px', color:T.sub, fontWeight:700, fontSize:12, cursor:'pointer', fontFamily:T.font }}>
-              Ajustes
-            </button>
-            <button onClick={abrirPerfil} style={{ width:36, height:36, borderRadius:'50%', background:T.s2, border:'1px solid '+T.border2, color:T.gold, fontWeight:800, fontSize:14, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-              {userName ? userName.charAt(0).toUpperCase() : 'P'}
-            </button>
-            <button onClick={()=>setVista('publicar')} style={{ background:G, border:'none', borderRadius:20, padding:'8px 16px', color:'#0a0a0a', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:T.font, whiteSpace:'nowrap' }}>
-              + Publicar
-            </button>
+            <div style={{ fontSize:11, color:T.muted }}>Bienvenido, {userName}</div>
           </div>
         </div>
         <input value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar productos..."
@@ -678,7 +723,7 @@ export default function App() {
         ))}
       </div>
 
-      <div style={{ padding:'0 18px 100px' }}>
+      <div style={{ padding:'0 18px 20px' }}>
         <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', marginBottom:14, fontWeight:600 }}>
           {productosFiltrados.length} PRODUCTOS{catActiva!=='Todo'?' EN '+catActiva.toUpperCase():''}
         </div>
@@ -693,33 +738,31 @@ export default function App() {
           </div>
         )}
 
-        {productosFiltrados.map(p=>(
-          <div key={p.id} style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:18, marginBottom:12, overflow:'hidden', boxShadow:'0 2px 12px rgba(0,0,0,0.3)' }}>
-            {p.foto_url
-              ? <img src={p.foto_url} alt={p.titulo} style={{ width:'100%', height:200, objectFit:'cover', display:'block' }} />
-              : <div style={{ height:100, background:'linear-gradient(135deg,'+T.s3+','+T.s4+')', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, color:T.gold, fontWeight:'bold' }}>{p.categoria?.toUpperCase()}</div>
-            }
-            <div style={{ padding:'14px 16px' }}>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8 }}>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontWeight:700, fontSize:16, marginBottom:4, letterSpacing:'-0.01em' }}>{p.titulo}</div>
-                  <div style={{ fontSize:12, color:T.muted, background:T.s3, display:'inline-block', padding:'2px 10px', borderRadius:20 }}>{p.categoria}</div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+          {productosFiltrados.map(p=>(
+            <div key={p.id} style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, overflow:'hidden', boxShadow:'0 2px 12px rgba(0,0,0,0.3)', display:'flex', flexDirection:'column' }}>
+              {p.foto_url
+                ? <img src={p.foto_url} alt={p.titulo} style={{ width:'100%', height:120, objectFit:'cover', display:'block' }} />
+                : <div style={{ height:90, background:'linear-gradient(135deg,'+T.s3+','+T.s4+')', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, color:T.gold, fontWeight:'bold', textAlign:'center', padding:6 }}>{p.categoria?.toUpperCase()}</div>
+              }
+              <div style={{ padding:'10px 12px', flex:1, display:'flex', flexDirection:'column' }}>
+                <div style={{ fontWeight:700, fontSize:13, marginBottom:4, letterSpacing:'-0.01em', lineHeight:1.3 }}>{p.titulo}</div>
+                <div style={{ color:T.gold, fontWeight:800, fontSize:16, marginBottom:8 }}>${Number(p.precio).toLocaleString()}</div>
+                <div style={{ display:'flex', gap:6, marginTop:'auto' }}>
+                  <button onClick={()=>abrirChat(p)} style={{ flex:1, padding:'8px', borderRadius:10, border:'none', background:G, color:'#0a0a0a', fontWeight:700, fontSize:11, cursor:'pointer', fontFamily:T.font }}>
+                    Contactar
+                  </button>
+                  <button onClick={()=>toggleFavorito(p.id)} style={{ padding:'8px 10px', borderRadius:10, border:'1px solid '+(favoritos.includes(p.id)?T.gold:T.border2), background:favoritos.includes(p.id)?T.gold+'22':'transparent', color:favoritos.includes(p.id)?T.gold:T.muted, fontWeight:700, fontSize:11, cursor:'pointer' }}>
+                    {favoritos.includes(p.id)?'FAV':'fav'}
+                  </button>
                 </div>
-                <div style={{ color:T.gold, fontWeight:800, fontSize:20, marginLeft:12, flexShrink:0 }}>${Number(p.precio).toLocaleString()}</div>
-              </div>
-              {p.descripcion&&<div style={{ fontSize:13, color:T.sub, marginBottom:12, lineHeight:1.5 }}>{p.descripcion}</div>}
-              <div style={{ display:'flex', gap:8 }}>
-                <button onClick={()=>abrirChat(p)} style={{ flex:1, padding:'10px', borderRadius:12, border:'none', background:G, color:'#0a0a0a', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:T.font }}>
-                  Contactar vendedor
-                </button>
-                <button onClick={()=>toggleFavorito(p.id)} style={{ padding:'10px 14px', borderRadius:12, border:'1px solid '+(favoritos.includes(p.id)?T.gold:T.border2), background:favoritos.includes(p.id)?T.gold+'22':'transparent', color:favoritos.includes(p.id)?T.gold:T.muted, fontWeight:700, fontSize:13, cursor:'pointer' }}>
-                  {favoritos.includes(p.id)?'FAV':'fav'}
-                </button>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
+
+      <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} />
     </div>
   )
 }
