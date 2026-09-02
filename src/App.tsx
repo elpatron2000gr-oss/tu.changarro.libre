@@ -13,8 +13,20 @@ const DARK = {
   isDark:true,
 }
 
+const LIGHT = {
+  bg:'#F5F2ED', s1:'#FFFFFF', s2:'#F0EDE6', s3:'#E8E4DA', s4:'#DDD8CB',
+  border:'#DDD8CB', border2:'#C9C3B5',
+  gold:'#D4A843', goldLt:'#F0C060', goldDk:'#A07828',
+  glow:'rgba(212,168,67,0.18)', glow2:'rgba(212,168,67,0.09)', glow3:'rgba(212,168,67,0.04)',
+  purple:'#8B5CF6', purpleLt:'#A78BFA', purpleGlow:'rgba(139,92,246,0.12)',
+  text:'#1A1A1A', sub:'#4A453D', muted:'#8A8578', dim:'#EDE9DE',
+  green:'#219653', red:'#C0392B', blue:'#2B6CB0', orange:'#D9720F',
+  font:"'Sora',sans-serif", serif:"'Libre Baskerville',serif",
+  isDark:false,
+}
+
 let T = DARK
-const G = 'linear-gradient(135deg,' + T.gold + ',' + T.goldDk + ')'
+const G = 'linear-gradient(135deg,' + DARK.gold + ',' + DARK.goldDk + ')'
 const FONTS = 'https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap'
 const CATEGORIAS = ['Todo','Electronica','Ropa','Hogar','Deportes','Servicios','Vehiculos','Inmuebles','Otro']
 
@@ -26,10 +38,10 @@ const PROVINCIAS = [
 ]
 
 const NIVELES = {
-  'Nuevo':     { color: T.muted,  siguiente: 'Confiable', minPuntaje: 0  },
-  'Confiable': { color: T.blue,   siguiente: 'Experto',   minPuntaje: 20 },
-  'Experto':   { color: T.purple, siguiente: 'Élite',     minPuntaje: 50 },
-  'Élite':     { color: T.gold,   siguiente: null,        minPuntaje: 100 },
+  'Nuevo':     { color: DARK.muted,  siguiente: 'Confiable', minPuntaje: 0  },
+  'Confiable': { color: DARK.blue,   siguiente: 'Experto',   minPuntaje: 20 },
+  'Experto':   { color: DARK.purple, siguiente: 'Élite',     minPuntaje: 50 },
+  'Élite':     { color: DARK.gold,   siguiente: null,        minPuntaje: 100 },
 }
 
 function Input({ value, onChange, placeholder, type='text', style={} }: any) {
@@ -48,7 +60,27 @@ function GBtn({ children, onClick, disabled, full, grad }: any) {
   )
 }
 
-function ReputationRing({ nivel, puntaje, size = 120 }) {
+function Toggle({ label, sub, value, onChange }: any) {
+  return (
+    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'14px 0', borderBottom:'1px solid '+T.border }}>
+      <div>
+        <div style={{ fontSize:14, fontWeight:700, color:T.text }}>{label}</div>
+        {sub && <div style={{ fontSize:12, color:T.muted, marginTop:2 }}>{sub}</div>}
+      </div>
+      <button onClick={onChange} style={{
+        width:48, height:28, borderRadius:20, border:'1px solid '+T.border2,
+        background: value ? G : T.s3, position:'relative', cursor:'pointer', flexShrink:0
+      }}>
+        <div style={{
+          width:20, height:20, borderRadius:'50%', background: value ? '#0a0a0a' : T.muted,
+          position:'absolute', top:3, left: value ? 24 : 3, transition:'left 0.2s ease'
+        }} />
+      </button>
+    </div>
+  )
+}
+
+function ReputationRing({ nivel, puntaje, size = 120 }: any) {
   const info = NIVELES[nivel] || NIVELES['Nuevo']
   const radius = (size - 16) / 2
   const circumference = 2 * Math.PI * radius
@@ -82,7 +114,7 @@ function ReputationRing({ nivel, puntaje, size = 120 }) {
   )
 }
 
-function AuthScreen({ onAuth }) {
+function AuthScreen({ onAuth }: any) {
   const [mode, setMode] = useState('login')
   const [email, setEmail] = useState('')
   const [pass, setPass] = useState('')
@@ -125,14 +157,14 @@ function AuthScreen({ onAuth }) {
         {mode==='register'&&(
           <div style={{ marginBottom:16 }}>
             <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Tu nombre</label>
-            <Input value={name} onChange={e=>setName(e.target.value)} placeholder="Ej: Ana Garcia" />
+            <Input value={name} onChange={(e:any)=>setName(e.target.value)} placeholder="Ej: Ana Garcia" />
           </div>
         )}
         <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Correo electronico</label>
-        <div style={{ marginBottom:16 }}><Input value={email} onChange={e=>setEmail(e.target.value)} placeholder="tu@email.com" type="email" /></div>
+        <div style={{ marginBottom:16 }}><Input value={email} onChange={(e:any)=>setEmail(e.target.value)} placeholder="tu@email.com" type="email" /></div>
         <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Contrasena</label>
         <div style={{ position:'relative', marginBottom:22 }}>
-          <Input value={pass} onChange={e=>setPass(e.target.value)} placeholder="••••••••" type={showPass?'text':'password'} />
+          <Input value={pass} onChange={(e:any)=>setPass(e.target.value)} placeholder="••••••••" type={showPass?'text':'password'} />
           <button onClick={()=>setShowPass(s=>!s)} style={{ position:'absolute', right:14, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', color:T.muted, cursor:'pointer', fontSize:13 }}>
             {showPass?'Ocultar':'Ver'}
           </button>
@@ -148,15 +180,15 @@ function AuthScreen({ onAuth }) {
 
 export default function App() {
   const [authed, setAuthed] = useState(false)
-  const [userId, setUserId] = useState(null)
+  const [userId, setUserId] = useState<any>(null)
   const [userName, setUserName] = useState('')
-  const [productos, setProductos] = useState([])
+  const [productos, setProductos] = useState<any[]>([])
   const [cargando, setCargando] = useState(false)
-  const [favoritos, setFavoritos] = useState([])
+  const [favoritos, setFavoritos] = useState<any[]>([])
   const [catActiva, setCatActiva] = useState('Todo')
   const [busqueda, setBusqueda] = useState('')
-  const [chatProducto, setChatProducto] = useState(null)
-  const [chatMensajes, setChatMensajes] = useState([])
+  const [chatProducto, setChatProducto] = useState<any>(null)
+  const [chatMensajes, setChatMensajes] = useState<any[]>([])
   const [chatTexto, setChatTexto] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [vista, setVista] = useState('home')
@@ -164,13 +196,13 @@ export default function App() {
   const [precio, setPrecio] = useState('')
   const [categoria, setCategoria] = useState('Electronica')
   const [descripcion, setDescripcion] = useState('')
-  const [fotoFile, setFotoFile] = useState(null)
-  const [fotoPreview, setFotoPreview] = useState(null)
+  const [fotoFile, setFotoFile] = useState<any>(null)
+  const [fotoPreview, setFotoPreview] = useState<any>(null)
   const [publicando, setPublicando] = useState(false)
   const [mensajePublicar, setMensajePublicar] = useState('')
 
-  const [perfilData, setPerfilData] = useState(null)
-  const [misPublicaciones, setMisPublicaciones] = useState([])
+  const [perfilData, setPerfilData] = useState<any>(null)
+  const [misPublicaciones, setMisPublicaciones] = useState<any[]>([])
   const [cargandoPerfil, setCargandoPerfil] = useState(false)
 
   const [editNombre, setEditNombre] = useState('')
@@ -179,7 +211,13 @@ export default function App() {
   const [guardandoPerfil, setGuardandoPerfil] = useState(false)
   const [mensajeEditar, setMensajeEditar] = useState('')
 
-  async function handleAuth(user) {
+  const [isDarkMode, setIsDarkMode] = useState(true)
+  const [notificacionesActivas, setNotificacionesActivas] = useState(true)
+  const [confirmandoEliminar, setConfirmandoEliminar] = useState(false)
+  const [eliminandoCuenta, setEliminandoCuenta] = useState(false)
+  const [mensajeConfig, setMensajeConfig] = useState('')
+
+  async function handleAuth(user: any) {
     setUserId(user.id)
     setUserName(user.nombre)
     setAuthed(true)
@@ -194,12 +232,12 @@ export default function App() {
     if (!res.error) setProductos(res.data)
   }
 
-  async function cargarFavoritos(uid) {
+  async function cargarFavoritos(uid: any) {
     const res = await supabase.from('favoritos').select('publicacion_id').eq('usuario_id', uid)
-    if (!res.error) setFavoritos(res.data.map(f => f.publicacion_id))
+    if (!res.error) setFavoritos(res.data.map((f:any) => f.publicacion_id))
   }
 
-  async function toggleFavorito(pubId) {
+  async function toggleFavorito(pubId: any) {
     const esFav = favoritos.includes(pubId)
     if (esFav) {
       await supabase.from('favoritos').delete().eq('usuario_id', userId).eq('publicacion_id', pubId)
@@ -210,7 +248,7 @@ export default function App() {
     }
   }
 
-  async function abrirChat(p) {
+  async function abrirChat(p: any) {
     setChatProducto(p)
     setVista('chat')
     const res = await supabase.from('mensajes').select('*').eq('publicacion_id', p.id).order('fecha', { ascending: true })
@@ -225,12 +263,12 @@ export default function App() {
     if (!res.error) { setChatMensajes([...chatMensajes, res.data]); setChatTexto('') }
   }
 
-  function handleFoto(e) {
+  function handleFoto(e: any) {
     const file = e.target.files[0]
     if (!file) return
     setFotoFile(file)
     const reader = new FileReader()
-    reader.onload = ev => setFotoPreview(ev.target.result)
+    reader.onload = (ev:any) => setFotoPreview(ev.target.result)
     reader.readAsDataURL(file)
   }
 
@@ -265,10 +303,10 @@ export default function App() {
     if (!resPublicaciones.error) setMisPublicaciones(resPublicaciones.data)
   }
 
-  async function eliminarPublicacion(pubId) {
+  async function eliminarPublicacion(pubId: any) {
     const res = await supabase.from('publicaciones').delete().eq('id', pubId)
     if (!res.error) {
-      setMisPublicaciones(misPublicaciones.filter(p => p.id !== pubId))
+      setMisPublicaciones(misPublicaciones.filter((p:any) => p.id !== pubId))
     }
   }
 
@@ -296,11 +334,33 @@ export default function App() {
     setVista('perfil')
   }
 
+  function cerrarSesion() {
+    setAuthed(false)
+    setUserId(null)
+    setUserName('')
+    setProductos([])
+    setFavoritos([])
+    setPerfilData(null)
+    setMisPublicaciones([])
+    setVista('home')
+  }
+
+  async function eliminarCuenta() {
+    setEliminandoCuenta(true)
+    setMensajeConfig('')
+    const res = await supabase.from('usuarios').delete().eq('id', userId)
+    setEliminandoCuenta(false)
+    if (res.error) { setMensajeConfig('Error: ' + res.error.message); return }
+    cerrarSesion()
+  }
+
   const productosFiltrados = productos.filter(p => {
     const matchCat = catActiva === 'Todo' || p.categoria === catActiva
     const matchBus = p.titulo.toLowerCase().includes(busqueda.toLowerCase())
     return matchCat && matchBus
   })
+
+  T = isDarkMode ? DARK : LIGHT
 
   if (!authed) return <AuthScreen onAuth={handleAuth} />
 
@@ -366,10 +426,10 @@ export default function App() {
           </label>
 
           <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Titulo *</label>
-          <Input value={titulo} onChange={e=>setTitulo(e.target.value)} placeholder="Ej: iPhone 13, Bicicleta..." style={{ marginBottom:16 }} />
+          <Input value={titulo} onChange={(e:any)=>setTitulo(e.target.value)} placeholder="Ej: iPhone 13, Bicicleta..." style={{ marginBottom:16 }} />
 
           <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Precio (ARS) *</label>
-          <Input value={precio} onChange={e=>setPrecio(e.target.value)} placeholder="0" type="number" style={{ marginBottom:16 }} />
+          <Input value={precio} onChange={(e:any)=>setPrecio(e.target.value)} placeholder="0" type="number" style={{ marginBottom:16 }} />
 
           <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Categoria</label>
           <select value={categoria} onChange={e=>setCategoria(e.target.value)}
@@ -403,14 +463,14 @@ export default function App() {
 
         <div style={{ padding:'20px 18px' }}>
           <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Nombre *</label>
-          <Input value={editNombre} onChange={e=>setEditNombre(e.target.value)} placeholder="Tu nombre" style={{ marginBottom:16 }} />
+          <Input value={editNombre} onChange={(e:any)=>setEditNombre(e.target.value)} placeholder="Tu nombre" style={{ marginBottom:16 }} />
 
           <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Correo</label>
           <Input value={perfilData?.email || ''} onChange={()=>{}} style={{ marginBottom:6, opacity:0.5 }} />
           <div style={{ fontSize:11, color:T.muted, marginBottom:16 }}>El correo no se puede modificar</div>
 
           <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Ciudad</label>
-          <Input value={editCiudad} onChange={e=>setEditCiudad(e.target.value)} placeholder="Ej: Rosario" style={{ marginBottom:16 }} />
+          <Input value={editCiudad} onChange={(e:any)=>setEditCiudad(e.target.value)} placeholder="Ej: Rosario" style={{ marginBottom:16 }} />
 
           <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Provincia</label>
           <select value={editProvincia} onChange={e=>setEditProvincia(e.target.value)}
@@ -424,6 +484,76 @@ export default function App() {
             {guardandoPerfil?'Guardando...':'Guardar cambios'}
           </GBtn>
           {mensajeEditar&&<p style={{ marginTop:14, color:T.red, fontSize:13, textAlign:'center' }}>{mensajeEditar}</p>}
+        </div>
+      </div>
+    )
+  }
+
+  if (vista === 'configuracion') {
+    return (
+      <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', paddingBottom:40 }}>
+        <link href={FONTS} rel="stylesheet" />
+        <div style={{ background:T.s1, padding:'16px 18px', borderBottom:'1px solid '+T.border, display:'flex', alignItems:'center', gap:12, position:'sticky', top:0, zIndex:60 }}>
+          <button onClick={()=>setVista('home')} style={{ background:'none', border:'none', color:T.gold, cursor:'pointer', fontSize:20, fontWeight:'bold' }}>Volver</button>
+          <div style={{ fontWeight:700, fontSize:17, flex:1 }}>Configuracion</div>
+        </div>
+
+        <div style={{ padding:'20px 18px' }}>
+
+          <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', marginBottom:6, fontWeight:600, textTransform:'uppercase' }}>Apariencia</div>
+          <div style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, padding:'4px 16px', marginBottom:24 }}>
+            <Toggle
+              label="Modo oscuro"
+              sub={isDarkMode ? 'Activado' : 'Desactivado'}
+              value={isDarkMode}
+              onChange={()=>setIsDarkMode(!isDarkMode)}
+            />
+          </div>
+
+          <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', marginBottom:6, fontWeight:600, textTransform:'uppercase' }}>Notificaciones</div>
+          <div style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, padding:'4px 16px', marginBottom:24 }}>
+            <Toggle
+              label="Notificaciones de mensajes"
+              sub="Proximamente"
+              value={notificacionesActivas}
+              onChange={()=>setNotificacionesActivas(!notificacionesActivas)}
+            />
+          </div>
+
+          <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', marginBottom:6, fontWeight:600, textTransform:'uppercase' }}>Cuenta</div>
+          <div style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, padding:'18px', marginBottom:24 }}>
+            <button onClick={cerrarSesion} style={{ width:'100%', padding:'12px', borderRadius:12, border:'1px solid '+T.border2, background:'transparent', color:T.text, fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:T.font }}>
+              Cerrar sesion
+            </button>
+          </div>
+
+          <div style={{ fontSize:11, color:T.red, letterSpacing:'0.1em', marginBottom:6, fontWeight:600, textTransform:'uppercase' }}>Zona de peligro</div>
+          <div style={{ background:T.s2, border:'1px solid '+T.red, borderRadius:16, padding:'18px' }}>
+            <div style={{ fontSize:13, color:T.sub, marginBottom:14, lineHeight:1.5 }}>
+              Eliminar tu cuenta borra tu perfil de forma permanente. Esta accion no se puede deshacer.
+            </div>
+
+            {!confirmandoEliminar ? (
+              <button onClick={()=>setConfirmandoEliminar(true)} style={{ width:'100%', padding:'12px', borderRadius:12, border:'1px solid '+T.red, background:'transparent', color:T.red, fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:T.font }}>
+                Eliminar cuenta
+              </button>
+            ) : (
+              <div>
+                <div style={{ fontSize:13, fontWeight:700, marginBottom:12, color:T.text }}>
+                  Estas seguro? Esto no se puede deshacer.
+                </div>
+                <div style={{ display:'flex', gap:10 }}>
+                  <button onClick={()=>setConfirmandoEliminar(false)} style={{ flex:1, padding:'12px', borderRadius:12, border:'1px solid '+T.border2, background:'transparent', color:T.text, fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:T.font }}>
+                    Cancelar
+                  </button>
+                  <button onClick={eliminarCuenta} disabled={eliminandoCuenta} style={{ flex:1, padding:'12px', borderRadius:12, border:'none', background:T.red, color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:T.font }}>
+                    {eliminandoCuenta ? 'Eliminando...' : 'Si, eliminar'}
+                  </button>
+                </div>
+              </div>
+            )}
+            {mensajeConfig && <p style={{ marginTop:14, color:T.red, fontSize:13, textAlign:'center' }}>{mensajeConfig}</p>}
+          </div>
         </div>
       </div>
     )
@@ -492,7 +622,7 @@ export default function App() {
               </div>
             )}
 
-            {misPublicaciones.map(p=>(
+            {misPublicaciones.map((p:any)=>(
               <div key={p.id} style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, marginBottom:12, overflow:'hidden', display:'flex' }}>
                 {p.foto_url
                   ? <img src={p.foto_url} alt={p.titulo} style={{ width:90, height:90, objectFit:'cover', flexShrink:0 }} />
@@ -524,10 +654,13 @@ export default function App() {
             <div style={{ fontSize:11, color:T.muted }}>Hola, {userName}</div>
           </div>
           <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-            <button onClick={abrirPerfil} style={{ width:36, height:36, borderRadius:'50%', background:T.s2, border:'1px solid '+T.border2, color:T.gold, fontWeight:800, fontSize:14, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <button onClick={()=>setVista('configuracion')} style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:20, padding:'8px 14px', color:T.sub, fontWeight:700, fontSize:12, cursor:'pointer', fontFamily:T.font }}>
+              Ajustes
+            </button>
+            <button onClick={abrirPerfil} style={{ width:36, height:36, borderRadius:'50%', background:T.s2, border:'1px solid '+T.border2, color:T.gold, fontWeight:800, fontSize:14, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
               {userName ? userName.charAt(0).toUpperCase() : 'P'}
             </button>
-            <button onClick={()=>setVista('publicar')} style={{ background:G, border:'none', borderRadius:20, padding:'8px 16px', color:'#0a0a0a', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:T.font }}>
+            <button onClick={()=>setVista('publicar')} style={{ background:G, border:'none', borderRadius:20, padding:'8px 16px', color:'#0a0a0a', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:T.font, whiteSpace:'nowrap' }}>
               + Publicar
             </button>
           </div>
