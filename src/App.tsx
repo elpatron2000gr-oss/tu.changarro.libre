@@ -18,6 +18,20 @@ const G = 'linear-gradient(135deg,' + T.gold + ',' + T.goldDk + ')'
 const FONTS = 'https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap'
 const CATEGORIAS = ['Todo','Electronica','Ropa','Hogar','Deportes','Servicios','Vehiculos','Inmuebles','Otro']
 
+const PROVINCIAS = [
+  'Buenos Aires','CABA','Catamarca','Chaco','Chubut','Cordoba','Corrientes',
+  'Entre Rios','Formosa','Jujuy','La Pampa','La Rioja','Mendoza','Misiones',
+  'Neuquen','Rio Negro','Salta','San Juan','San Luis','Santa Cruz',
+  'Santa Fe','Santiago del Estero','Tierra del Fuego','Tucuman'
+]
+
+const NIVELES = {
+  'Nuevo':     { color: T.muted,  siguiente: 'Confiable', minPuntaje: 0  },
+  'Confiable': { color: T.blue,   siguiente: 'Experto',   minPuntaje: 20 },
+  'Experto':   { color: T.purple, siguiente: 'Élite',     minPuntaje: 50 },
+  'Élite':     { color: T.gold,   siguiente: null,        minPuntaje: 100 },
+}
+
 function Input({ value, onChange, placeholder, type='text', style={} }) {
   return (
     <input value={value} onChange={onChange} placeholder={placeholder} type={type}
@@ -31,6 +45,40 @@ function GBtn({ children, onClick, disabled, full, grad }) {
     <button onClick={onClick} disabled={disabled} style={{ width:full?'100%':'auto', padding:'13px 20px', borderRadius:14, border:'none', background:disabled?'#444':(grad||G), color:'#0a0a0a', fontWeight:700, fontSize:15, cursor:disabled?'not-allowed':'pointer', fontFamily:T.font, display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
       {children}
     </button>
+  )
+}
+
+function ReputationRing({ nivel, puntaje, size = 120 }) {
+  const info = NIVELES[nivel] || NIVELES['Nuevo']
+  const radius = (size - 16) / 2
+  const circumference = 2 * Math.PI * radius
+  const pctVisual = Math.min(100, puntaje)
+  const [animado, setAnimado] = useState(0)
+
+  useEffect(() => {
+    const t = setTimeout(() => setAnimado(pctVisual), 100)
+    return () => clearTimeout(t)
+  }, [pctVisual])
+
+  const offset = circumference - (animado / 100) * circumference
+
+  return (
+    <div style={{ position:'relative', width:size, height:size }}>
+      <svg width={size} height={size} style={{ transform:'rotate(-90deg)' }}>
+        <circle cx={size/2} cy={size/2} r={radius} fill="none" stroke={T.s3} strokeWidth={8} />
+        <circle
+          cx={size/2} cy={size/2} r={radius} fill="none"
+          stroke={info.color} strokeWidth={8} strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          style={{ transition:'stroke-dashoffset 1.2s ease-out' }}
+        />
+      </svg>
+      <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
+        <div style={{ fontSize:22, fontWeight:800, color:info.color }}>{puntaje}</div>
+        <div style={{ fontSize:10, color:T.muted, letterSpacing:'0.05em' }}>PUNTOS</div>
+      </div>
+    </div>
   )
 }
 
@@ -121,6 +169,16 @@ export default function App() {
   const [publicando, setPublicando] = useState(false)
   const [mensajePublicar, setMensajePublicar] = useState('')
 
+  const [perfilData, setPerfilData] = useState(null)
+  const [misPublicaciones, setMisPublicaciones] = useState([])
+  const [cargandoPerfil, setCargandoPerfil] = useState(false)
+
+  const [editNombre, setEditNombre] = useState('')
+  const [editCiudad, setEditCiudad] = useState('')
+  const [editProvincia, setEditProvincia] = useState('')
+  const [guardandoPerfil, setGuardandoPerfil] = useState(false)
+  const [mensajeEditar, setMensajeEditar] = useState('')
+
   async function handleAuth(user) {
     setUserId(user.id)
     setUserName(user.nombre)
@@ -193,6 +251,49 @@ export default function App() {
     setTitulo(''); setPrecio(''); setDescripcion(''); setFotoFile(null); setFotoPreview(null)
     setVista('home')
     cargarProductos()
+  }
+
+  async function abrirPerfil() {
+    setVista('perfil')
+    setCargandoPerfil(true)
+    const [resUsuario, resPublicaciones] = await Promise.all([
+      supabase.from('usuarios').select('*').eq('id', userId).single(),
+      supabase.from('publicaciones').select('*').eq('vendedor_id', userId).order('fecha_publicacion', { ascending: false })
+    ])
+    setCargandoPerfil(false)
+    if (!resUsuario.error) setPerfilData(resUsuario.data)
+    if (!resPublicaciones.error) setMisPublicaciones(resPublicaciones.data)
+  }
+
+  async function eliminarPublicacion(pubId) {
+    const res = await supabase.from('publicaciones').delete().eq('id', pubId)
+    if (!res.error) {
+      setMisPublicaciones(misPublicaciones.filter(p => p.id !== pubId))
+    }
+  }
+
+  function abrirEditarPerfil() {
+    setEditNombre(perfilData?.nombre || '')
+    setEditCiudad(perfilData?.ciudad || '')
+    setEditProvincia(perfilData?.provincia || '')
+    setMensajeEditar('')
+    setVista('editarPerfil')
+  }
+
+  async function guardarPerfil() {
+    if (!editNombre.trim()) { setMensajeEditar('El nombre no puede estar vacio'); return }
+    setGuardandoPerfil(true)
+    setMensajeEditar('')
+    const res = await supabase.from('usuarios')
+      .update({ nombre: editNombre, ciudad: editCiudad, provincia: editProvincia })
+      .eq('id', userId)
+      .select()
+      .single()
+    setGuardandoPerfil(false)
+    if (res.error) { setMensajeEditar('Error: ' + res.error.message); return }
+    setPerfilData(res.data)
+    setUserName(res.data.nombre)
+    setVista('perfil')
   }
 
   const productosFiltrados = productos.filter(p => {
@@ -291,6 +392,127 @@ export default function App() {
     )
   }
 
+  if (vista === 'editarPerfil') {
+    return (
+      <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', paddingBottom:30 }}>
+        <link href={FONTS} rel="stylesheet" />
+        <div style={{ background:T.s1, padding:'16px 18px', borderBottom:'1px solid '+T.border, display:'flex', alignItems:'center', gap:12, position:'sticky', top:0, zIndex:60 }}>
+          <button onClick={()=>setVista('perfil')} style={{ background:'none', border:'none', color:T.gold, cursor:'pointer', fontSize:20, fontWeight:'bold' }}>Volver</button>
+          <div style={{ fontWeight:700, fontSize:17, flex:1 }}>Editar perfil</div>
+        </div>
+
+        <div style={{ padding:'20px 18px' }}>
+          <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Nombre *</label>
+          <Input value={editNombre} onChange={e=>setEditNombre(e.target.value)} placeholder="Tu nombre" style={{ marginBottom:16 }} />
+
+          <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Correo</label>
+          <Input value={perfilData?.email || ''} onChange={()=>{}} style={{ marginBottom:6, opacity:0.5 }} />
+          <div style={{ fontSize:11, color:T.muted, marginBottom:16 }}>El correo no se puede modificar</div>
+
+          <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Ciudad</label>
+          <Input value={editCiudad} onChange={e=>setEditCiudad(e.target.value)} placeholder="Ej: Rosario" style={{ marginBottom:16 }} />
+
+          <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Provincia</label>
+          <select value={editProvincia} onChange={e=>setEditProvincia(e.target.value)}
+            style={{ width:'100%', padding:'13px 16px', marginBottom:22, borderRadius:12, border:'1px solid '+T.border2, background:T.s2, color:T.text, fontSize:15, boxSizing:'border-box', fontFamily:T.font }}
+          >
+            <option value="">Seleccionar provincia</option>
+            {PROVINCIAS.map(p=><option key={p} value={p}>{p}</option>)}
+          </select>
+
+          <GBtn full disabled={!editNombre.trim()||guardandoPerfil} onClick={guardarPerfil}>
+            {guardandoPerfil?'Guardando...':'Guardar cambios'}
+          </GBtn>
+          {mensajeEditar&&<p style={{ marginTop:14, color:T.red, fontSize:13, textAlign:'center' }}>{mensajeEditar}</p>}
+        </div>
+      </div>
+    )
+  }
+
+  if (vista === 'perfil') {
+    const nivel = perfilData?.nivel_reputacion || 'Nuevo'
+    const info = NIVELES[nivel] || NIVELES['Nuevo']
+
+    return (
+      <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', paddingBottom:40 }}>
+        <link href={FONTS} rel="stylesheet" />
+        <div style={{ background:T.s1, padding:'16px 18px', borderBottom:'1px solid '+T.border, display:'flex', alignItems:'center', gap:12, position:'sticky', top:0, zIndex:60 }}>
+          <button onClick={()=>setVista('home')} style={{ background:'none', border:'none', color:T.gold, cursor:'pointer', fontSize:20, fontWeight:'bold' }}>Volver</button>
+          <div style={{ fontWeight:700, fontSize:17, flex:1 }}>Mi perfil</div>
+          <button onClick={abrirEditarPerfil} style={{ background:T.s2, border:'1px solid '+T.border2, color:T.gold, borderRadius:12, padding:'6px 12px', fontSize:12, fontWeight:700, cursor:'pointer' }}>
+            Editar
+          </button>
+        </div>
+
+        {cargandoPerfil && <p style={{ color:T.muted, textAlign:'center', padding:40 }}>Cargando perfil...</p>}
+
+        {!cargandoPerfil && perfilData && (
+          <div style={{ padding:'26px 18px' }}>
+
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', marginBottom:26 }}>
+              <ReputationRing nivel={nivel} puntaje={perfilData.puntaje_reputacion || 0} />
+              <div style={{ fontSize:20, fontWeight:800, marginTop:14 }}>{perfilData.nombre}</div>
+              <div style={{
+                marginTop:8, padding:'4px 14px', borderRadius:20, fontSize:12, fontWeight:700,
+                color: info.color, border:'1px solid '+info.color, background: info.color+'18'
+              }}>
+                {nivel}
+              </div>
+            </div>
+
+            <div style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, padding:'18px', marginBottom:20 }}>
+              <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', fontWeight:600, marginBottom:14, textTransform:'uppercase' }}>Datos de la cuenta</div>
+
+              <div style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid '+T.border }}>
+                <span style={{ color:T.muted, fontSize:13 }}>Correo</span>
+                <span style={{ fontSize:13, fontWeight:600 }}>{perfilData.email}</span>
+              </div>
+              <div style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid '+T.border }}>
+                <span style={{ color:T.muted, fontSize:13 }}>Ciudad</span>
+                <span style={{ fontSize:13, fontWeight:600 }}>{perfilData.ciudad || 'No especificada'}</span>
+              </div>
+              <div style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid '+T.border }}>
+                <span style={{ color:T.muted, fontSize:13 }}>Provincia</span>
+                <span style={{ fontSize:13, fontWeight:600 }}>{perfilData.provincia || 'No especificada'}</span>
+              </div>
+              <div style={{ display:'flex', justifyContent:'space-between', padding:'8px 0' }}>
+                <span style={{ color:T.muted, fontSize:13 }}>Ventas realizadas</span>
+                <span style={{ fontSize:13, fontWeight:600, color:T.gold }}>{perfilData.cantidad_ventas || 0}</span>
+              </div>
+            </div>
+
+            <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', marginBottom:14, fontWeight:600 }}>
+              MIS PUBLICACIONES ({misPublicaciones.length})
+            </div>
+
+            {misPublicaciones.length===0 && (
+              <div style={{ textAlign:'center', padding:'40px 20px', color:T.muted, background:T.s2, borderRadius:16, border:'1px solid '+T.border2 }}>
+                <div style={{ fontSize:14, fontWeight:700, marginBottom:6 }}>Todavia no publicaste nada</div>
+                <div style={{ fontSize:12 }}>Tus productos van a aparecer aca</div>
+              </div>
+            )}
+
+            {misPublicaciones.map(p=>(
+              <div key={p.id} style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, marginBottom:12, overflow:'hidden', display:'flex' }}>
+                {p.foto_url
+                  ? <img src={p.foto_url} alt={p.titulo} style={{ width:90, height:90, objectFit:'cover', flexShrink:0 }} />
+                  : <div style={{ width:90, height:90, flexShrink:0, background:'linear-gradient(135deg,'+T.s3+','+T.s4+')', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, color:T.gold, fontWeight:'bold', textAlign:'center', padding:6 }}>{p.categoria?.toUpperCase()}</div>
+                }
+                <div style={{ padding:'12px 14px', flex:1, display:'flex', flexDirection:'column', justifyContent:'center' }}>
+                  <div style={{ fontWeight:700, fontSize:14, marginBottom:4 }}>{p.titulo}</div>
+                  <div style={{ color:T.gold, fontWeight:800, fontSize:15, marginBottom:8 }}>${Number(p.precio).toLocaleString()}</div>
+                  <button onClick={()=>eliminarPublicacion(p.id)} style={{ alignSelf:'flex-start', background:'none', border:'1px solid '+T.red, color:T.red, borderRadius:10, padding:'4px 12px', fontSize:11, fontWeight:700, cursor:'pointer' }}>
+                    Eliminar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto' }}>
       <link href={FONTS} rel="stylesheet" />
@@ -301,9 +523,14 @@ export default function App() {
             <div style={{ fontFamily:"'Libre Baskerville',serif", fontSize:20, background:G, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', fontWeight:700 }}>Tu Changarro Libre</div>
             <div style={{ fontSize:11, color:T.muted }}>Hola, {userName}</div>
           </div>
-          <button onClick={()=>setVista('publicar')} style={{ background:G, border:'none', borderRadius:20, padding:'8px 16px', color:'#0a0a0a', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:T.font }}>
-            + Publicar
-          </button>
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+            <button onClick={abrirPerfil} style={{ width:36, height:36, borderRadius:'50%', background:T.s2, border:'1px solid '+T.border2, color:T.gold, fontWeight:800, fontSize:14, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              {userName ? userName.charAt(0).toUpperCase() : 'P'}
+            </button>
+            <button onClick={()=>setVista('publicar')} style={{ background:G, border:'none', borderRadius:20, padding:'8px 16px', color:'#0a0a0a', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:T.font }}>
+              + Publicar
+            </button>
+          </div>
         </div>
         <input value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar productos..."
           style={{ width:'100%', padding:'10px 16px', borderRadius:24, border:'1px solid '+T.border2, background:T.s2, color:T.text, fontSize:14, outline:'none', fontFamily:T.font, boxSizing:'border-box' }}
