@@ -44,6 +44,20 @@ const NIVELES = {
   'Élite':     { color: DARK.gold,   siguiente: null,        minPuntaje: 100 },
 }
 
+function tiempoTranscurrido(fechaStr: any) {
+  if (!fechaStr) return ''
+  const diff = Date.now() - new Date(fechaStr).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'ahora'
+  if (mins < 60) return 'hace ' + mins + ' min'
+  const horas = Math.floor(mins / 60)
+  if (horas < 24) return 'hace ' + horas + ' h'
+  const dias = Math.floor(horas / 24)
+  if (dias < 30) return 'hace ' + dias + ' d'
+  const meses = Math.floor(dias / 30)
+  return 'hace ' + meses + (meses > 1 ? ' meses' : ' mes')
+}
+
 function Input({ value, onChange, placeholder, type='text', style={} }: any) {
   return (
     <input value={value} onChange={onChange} placeholder={placeholder} type={type}
@@ -224,6 +238,8 @@ export default function App() {
   const [catActiva, setCatActiva] = useState('Todo')
   const [busqueda, setBusqueda] = useState('')
   const [chatProducto, setChatProducto] = useState<any>(null)
+  const [chatOtroUsuario, setChatOtroUsuario] = useState<any>(null)
+  const [chatOrigen, setChatOrigen] = useState('home')
   const [chatMensajes, setChatMensajes] = useState<any[]>([])
   const [chatTexto, setChatTexto] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -240,6 +256,9 @@ export default function App() {
   const [perfilData, setPerfilData] = useState<any>(null)
   const [misPublicaciones, setMisPublicaciones] = useState<any[]>([])
   const [cargandoPerfil, setCargandoPerfil] = useState(false)
+
+  const [misMensajes, setMisMensajes] = useState<any[]>([])
+  const [cargandoMensajes, setCargandoMensajes] = useState(false)
 
   const [editNombre, setEditNombre] = useState('')
   const [editCiudad, setEditCiudad] = useState('')
@@ -284,8 +303,17 @@ export default function App() {
     }
   }
 
-  async function abrirChat(p: any) {
+  async function abrirProductoDesdeHome(p: any) {
+    if (p.vendedor_id !== userId) {
+      supabase.from('publicaciones').update({ vistas: (p.vistas || 0) + 1 }).eq('id', p.id).then(()=>{})
+    }
+    abrirChat(p, p.vendedor_id, 'home')
+  }
+
+  async function abrirChat(p: any, otroUsuarioId: any, origen: string = 'home') {
     setChatProducto(p)
+    setChatOtroUsuario(otroUsuarioId)
+    setChatOrigen(origen)
     setVista('chat')
     const res = await supabase.from('mensajes').select('*').eq('publicacion_id', p.id).order('fecha', { ascending: true })
     if (!res.error) setChatMensajes(res.data)
@@ -294,7 +322,7 @@ export default function App() {
   async function enviarMensaje() {
     if (!chatTexto.trim()) return
     setEnviando(true)
-    const res = await supabase.from('mensajes').insert([{ de_usuario_id: userId, para_usuario_id: chatProducto.vendedor_id, publicacion_id: chatProducto.id, texto: chatTexto }]).select().single()
+    const res = await supabase.from('mensajes').insert([{ de_usuario_id: userId, para_usuario_id: chatOtroUsuario, publicacion_id: chatProducto.id, texto: chatTexto }]).select().single()
     setEnviando(false)
     if (!res.error) { setChatMensajes([...chatMensajes, res.data]); setChatTexto('') }
   }
@@ -318,6 +346,7 @@ export default function App() {
       const path = userId + '-' + Date.now() + '.' + ext
       const subida = await supabase.storage.from('fotos').upload(path, fotoFile)
       if (!subida.error) { const url = supabase.storage.from('fotos').getPublicUrl(path); fotoUrl = url.data.publicUrl }
+      else { setPublicando(false); setMensajePublicar('Error subiendo la foto: ' + subida.error.message); return }
     }
     const res = await supabase.from('publicaciones').insert([{ vendedor_id: userId, titulo, precio: Number(precio), categoria, descripcion, foto_url: fotoUrl }]).select().single()
     setPublicando(false)
@@ -344,6 +373,42 @@ export default function App() {
     if (!res.error) {
       setMisPublicaciones(misPublicaciones.filter((p:any) => p.id !== pubId))
     }
+  }
+
+  async function abrirBandejaMensajes() {
+    setVista('mensajes')
+    setCargandoMensajes(true)
+    const res = await supabase.from('mensajes')
+      .select('*')
+      .or('de_usuario_id.eq.' + userId + ',para_usuario_id.eq.' + userId)
+      .order('fecha', { ascending: false })
+    if (res.error) { setCargandoMensajes(false); return }
+
+    const vistos = new Set()
+    const conversaciones: any[] = []
+    for (const m of res.data) {
+      const otro = m.de_usuario_id === userId ? m.para_usuario_id : m.de_usuario_id
+      const key = m.publicacion_id + '-' + otro
+      if (!vistos.has(key)) {
+        vistos.add(key)
+        conversaciones.push({ ...m, otro })
+      }
+    }
+
+    const pubIds = [...new Set(conversaciones.map((c:any) => c.publicacion_id))]
+    if (pubIds.length > 0) {
+      const resPub = await supabase.from('publicaciones').select('id,titulo,foto_url,precio').in('id', pubIds)
+      const pubMap: any = {}
+      if (!resPub.error) resPub.data.forEach((p:any) => pubMap[p.id] = p)
+      conversaciones.forEach((c:any) => c.producto = pubMap[c.publicacion_id])
+    }
+
+    setMisMensajes(conversaciones)
+    setCargandoMensajes(false)
+  }
+
+  function abrirConversacion(c: any) {
+    abrirChat(c.producto, c.otro, 'mensajes')
   }
 
   function abrirEditarPerfil() {
@@ -396,6 +461,8 @@ export default function App() {
     return matchCat && matchBus
   })
 
+  const vistasTotales = misPublicaciones.reduce((acc:any, p:any) => acc + (p.vistas || 0), 0)
+
   T = isDarkMode ? DARK : LIGHT
 
   if (!authed) return <AuthScreen onAuth={handleAuth} />
@@ -405,7 +472,7 @@ export default function App() {
       <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', display:'flex', flexDirection:'column' }}>
         <link href={FONTS} rel="stylesheet" />
         <div style={{ background:T.s1, padding:'16px 18px', borderBottom:'1px solid '+T.border, display:'flex', alignItems:'center', gap:12, position:'sticky', top:0, zIndex:60 }}>
-          <button onClick={()=>setVista('home')} style={{ background:'none', border:'none', color:T.gold, cursor:'pointer', fontSize:20, fontWeight:'bold', padding:0 }}>Volver</button>
+          <button onClick={()=>setVista(chatOrigen)} style={{ background:'none', border:'none', color:T.gold, cursor:'pointer', fontSize:20, fontWeight:'bold', padding:0 }}>Volver</button>
           <div style={{ flex:1 }}>
             <div style={{ fontWeight:700, fontSize:15 }}>{chatProducto.titulo}</div>
             <div style={{ fontSize:11, color:T.muted }}>Chat del producto</div>
@@ -422,7 +489,7 @@ export default function App() {
                 {m.texto}
               </div>
               <div style={{ fontSize:10, color:T.muted, marginTop:4, textAlign:m.de_usuario_id===userId?'right':'left' }}>
-                {new Date(m.fecha).toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' })}
+                {tiempoTranscurrido(m.fecha)}
               </div>
             </div>
           ))}
@@ -435,6 +502,47 @@ export default function App() {
             {enviando?'...':'Enviar'}
           </button>
         </div>
+      </div>
+    )
+  }
+
+  if (vista === 'mensajes') {
+    return (
+      <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', paddingBottom:100 }}>
+        <link href={FONTS} rel="stylesheet" />
+        <div style={{ background:T.s1, padding:'16px 18px', borderBottom:'1px solid '+T.border, display:'flex', alignItems:'center', gap:12, position:'sticky', top:0, zIndex:60 }}>
+          <button onClick={()=>setVista('perfil')} style={{ background:'none', border:'none', color:T.gold, cursor:'pointer', fontSize:20, fontWeight:'bold' }}>Volver</button>
+          <div style={{ fontWeight:700, fontSize:17, flex:1 }}>Mensajes</div>
+        </div>
+
+        <div style={{ padding:'18px' }}>
+          {cargandoMensajes && <p style={{ color:T.muted, textAlign:'center', padding:40 }}>Cargando conversaciones...</p>}
+
+          {!cargandoMensajes && misMensajes.length===0 && (
+            <div style={{ textAlign:'center', padding:'60px 20px', color:T.muted }}>
+              <div style={{ fontSize:14, fontWeight:700, marginBottom:6 }}>Todavia no tenes conversaciones</div>
+              <div style={{ fontSize:12 }}>Cuando alguien te escriba va a aparecer aca</div>
+            </div>
+          )}
+
+          {misMensajes.map((c:any)=>(
+            <button key={c.publicacion_id+'-'+c.otro} onClick={()=>abrirConversacion(c)} style={{
+              width:'100%', textAlign:'left', display:'flex', gap:12, alignItems:'center',
+              background:T.s2, border:'1px solid '+T.border2, borderRadius:16, padding:'12px', marginBottom:10, cursor:'pointer'
+            }}>
+              {c.producto?.foto_url
+                ? <img src={c.producto.foto_url} style={{ width:52, height:52, borderRadius:12, objectFit:'cover', flexShrink:0 }} />
+                : <div style={{ width:52, height:52, borderRadius:12, background:T.s3, flexShrink:0 }} />
+              }
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontWeight:700, fontSize:13, marginBottom:2 }}>{c.producto?.titulo || 'Producto'}</div>
+                <div style={{ fontSize:12, color:T.muted, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.texto}</div>
+              </div>
+              <div style={{ fontSize:10, color:T.muted, flexShrink:0 }}>{tiempoTranscurrido(c.fecha)}</div>
+            </button>
+          ))}
+        </div>
+        <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} />
       </div>
     )
   }
@@ -634,7 +742,7 @@ export default function App() {
         {!cargandoPerfil && perfilData && (
           <div style={{ padding:'26px 18px' }}>
 
-            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', marginBottom:26 }}>
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', marginBottom:22 }}>
               <ReputationRing nivel={nivel} puntaje={perfilData.puntaje_reputacion || 0} />
               <div style={{ fontSize:20, fontWeight:800, marginTop:14 }}>{perfilData.nombre}</div>
               <div style={{
@@ -644,6 +752,29 @@ export default function App() {
                 {nivel}
               </div>
             </div>
+
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:20 }}>
+              <div style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:14, padding:'14px 8px', textAlign:'center' }}>
+                <div style={{ fontSize:20, fontWeight:800, color:T.gold }}>{misPublicaciones.length}</div>
+                <div style={{ fontSize:10, color:T.muted, marginTop:4 }}>Publicados</div>
+              </div>
+              <div style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:14, padding:'14px 8px', textAlign:'center' }}>
+                <div style={{ fontSize:20, fontWeight:800, color:T.green }}>{perfilData.cantidad_ventas || 0}</div>
+                <div style={{ fontSize:10, color:T.muted, marginTop:4 }}>Vendidos</div>
+              </div>
+              <div style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:14, padding:'14px 8px', textAlign:'center' }}>
+                <div style={{ fontSize:20, fontWeight:800, color:T.blue }}>{vistasTotales}</div>
+                <div style={{ fontSize:10, color:T.muted, marginTop:4 }}>Vistas</div>
+              </div>
+            </div>
+
+            <button onClick={abrirBandejaMensajes} style={{
+              width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between',
+              background:T.s2, border:'1px solid '+T.border2, borderRadius:16, padding:'16px 18px', marginBottom:20, cursor:'pointer'
+            }}>
+              <span style={{ fontSize:14, fontWeight:700, color:T.text }}>Mensajes</span>
+              <span style={{ fontSize:12, color:T.gold, fontWeight:700 }}>Ver todos →</span>
+            </button>
 
             <div style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, padding:'18px', marginBottom:20 }}>
               <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', fontWeight:600, marginBottom:14, textTransform:'uppercase' }}>Datos de la cuenta</div>
@@ -656,13 +787,9 @@ export default function App() {
                 <span style={{ color:T.muted, fontSize:13 }}>Ciudad</span>
                 <span style={{ fontSize:13, fontWeight:600 }}>{perfilData.ciudad || 'No especificada'}</span>
               </div>
-              <div style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid '+T.border }}>
+              <div style={{ display:'flex', justifyContent:'space-between', padding:'8px 0' }}>
                 <span style={{ color:T.muted, fontSize:13 }}>Provincia</span>
                 <span style={{ fontSize:13, fontWeight:600 }}>{perfilData.provincia || 'No especificada'}</span>
-              </div>
-              <div style={{ display:'flex', justifyContent:'space-between', padding:'8px 0' }}>
-                <span style={{ color:T.muted, fontSize:13 }}>Ventas realizadas</span>
-                <span style={{ fontSize:13, fontWeight:600, color:T.gold }}>{perfilData.cantidad_ventas || 0}</span>
               </div>
             </div>
 
@@ -685,7 +812,8 @@ export default function App() {
                 }
                 <div style={{ padding:'12px 14px', flex:1, display:'flex', flexDirection:'column', justifyContent:'center' }}>
                   <div style={{ fontWeight:700, fontSize:14, marginBottom:4 }}>{p.titulo}</div>
-                  <div style={{ color:T.gold, fontWeight:800, fontSize:15, marginBottom:8 }}>${Number(p.precio).toLocaleString()}</div>
+                  <div style={{ color:T.gold, fontWeight:800, fontSize:15, marginBottom:4 }}>${Number(p.precio).toLocaleString()}</div>
+                  <div style={{ fontSize:11, color:T.muted, marginBottom:8 }}>{p.vistas || 0} vistas · {tiempoTranscurrido(p.fecha_publicacion)}</div>
                   <button onClick={()=>eliminarPublicacion(p.id)} style={{ alignSelf:'flex-start', background:'none', border:'1px solid '+T.red, color:T.red, borderRadius:10, padding:'4px 12px', fontSize:11, fontWeight:700, cursor:'pointer' }}>
                     Eliminar
                   </button>
@@ -747,9 +875,10 @@ export default function App() {
               }
               <div style={{ padding:'10px 12px', flex:1, display:'flex', flexDirection:'column' }}>
                 <div style={{ fontWeight:700, fontSize:13, marginBottom:4, letterSpacing:'-0.01em', lineHeight:1.3 }}>{p.titulo}</div>
-                <div style={{ color:T.gold, fontWeight:800, fontSize:16, marginBottom:8 }}>${Number(p.precio).toLocaleString()}</div>
+                <div style={{ color:T.gold, fontWeight:800, fontSize:16, marginBottom:4 }}>${Number(p.precio).toLocaleString()}</div>
+                <div style={{ fontSize:10, color:T.muted, marginBottom:8 }}>{tiempoTranscurrido(p.fecha_publicacion)}</div>
                 <div style={{ display:'flex', gap:6, marginTop:'auto' }}>
-                  <button onClick={()=>abrirChat(p)} style={{ flex:1, padding:'8px', borderRadius:10, border:'none', background:G, color:'#0a0a0a', fontWeight:700, fontSize:11, cursor:'pointer', fontFamily:T.font }}>
+                  <button onClick={()=>abrirProductoDesdeHome(p)} style={{ flex:1, padding:'8px', borderRadius:10, border:'none', background:G, color:'#0a0a0a', fontWeight:700, fontSize:11, cursor:'pointer', fontFamily:T.font }}>
                     Contactar
                   </button>
                   <button onClick={()=>toggleFavorito(p.id)} style={{ padding:'8px 10px', borderRadius:10, border:'1px solid '+(favoritos.includes(p.id)?T.gold:T.border2), background:favoritos.includes(p.id)?T.gold+'22':'transparent', color:favoritos.includes(p.id)?T.gold:T.muted, fontWeight:700, fontSize:11, cursor:'pointer' }}>
