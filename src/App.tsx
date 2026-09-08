@@ -250,6 +250,8 @@ export default function App() {
   const [descripcion, setDescripcion] = useState('')
   const [fotoFile, setFotoFile] = useState<any>(null)
   const [fotoPreview, setFotoPreview] = useState<any>(null)
+  const [videoFile, setVideoFile] = useState<any>(null)
+  const [videoPreview, setVideoPreview] = useState<any>(null)
   const [publicando, setPublicando] = useState(false)
   const [mensajePublicar, setMensajePublicar] = useState('')
 
@@ -336,6 +338,13 @@ export default function App() {
     reader.readAsDataURL(file)
   }
 
+  function handleVideo(e: any) {
+    const file = e.target.files[0]
+    if (!file) return
+    setVideoFile(file)
+    setVideoPreview(URL.createObjectURL(file))
+  }
+
   async function publicar() {
     if (!titulo || !precio) { setMensajePublicar('Completa titulo y precio'); return }
     setPublicando(true)
@@ -348,10 +357,18 @@ export default function App() {
       if (!subida.error) { const url = supabase.storage.from('fotos').getPublicUrl(path); fotoUrl = url.data.publicUrl }
       else { setPublicando(false); setMensajePublicar('Error subiendo la foto: ' + subida.error.message); return }
     }
-    const res = await supabase.from('publicaciones').insert([{ vendedor_id: userId, titulo, precio: Number(precio), categoria, descripcion, foto_url: fotoUrl }]).select().single()
+    let videoUrl = null
+    if (videoFile) {
+      const ext = videoFile.name.split('.').pop()
+      const path = userId + '-' + Date.now() + '-v.' + ext
+      const subidaVideo = await supabase.storage.from('videos').upload(path, videoFile)
+      if (!subidaVideo.error) { const url = supabase.storage.from('videos').getPublicUrl(path); videoUrl = url.data.publicUrl }
+      else { setPublicando(false); setMensajePublicar('Error subiendo el video: ' + subidaVideo.error.message); return }
+    }
+    const res = await supabase.from('publicaciones').insert([{ vendedor_id: userId, titulo, precio: Number(precio), categoria, descripcion, foto_url: fotoUrl, video_url: videoUrl }]).select().single()
     setPublicando(false)
     if (res.error) { setMensajePublicar('Error: ' + res.error.message); return }
-    setTitulo(''); setPrecio(''); setDescripcion(''); setFotoFile(null); setFotoPreview(null)
+    setTitulo(''); setPrecio(''); setDescripcion(''); setFotoFile(null); setFotoPreview(null); setVideoFile(null); setVideoPreview(null)
     setVista('home')
     cargarProductos()
   }
@@ -565,6 +582,19 @@ export default function App() {
                   <div style={{ fontSize:36, color:T.gold, fontWeight:'bold' }}>+</div>
                   <div style={{ fontSize:13 }}>Toca para agregar foto</div>
                   <div style={{ fontSize:11 }}>Camara o galeria</div>
+                </div>
+            }
+          </label>
+
+          <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Video del producto (opcional)</label>
+          <input type="file" accept="video/*" onChange={handleVideo} style={{ display:'none' }} id="videoInput" />
+          <label htmlFor="videoInput" style={{ display:'block', width:'100%', height:180, borderRadius:16, border:'2px dashed '+(videoPreview?T.gold:T.border2), background:T.s2, cursor:'pointer', marginBottom:18, overflow:'hidden', boxSizing:'border-box' }}>
+            {videoPreview
+              ? <video src={videoPreview} controls style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+              : <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', color:T.muted, gap:8 }}>
+                  <div style={{ fontSize:36, color:T.gold, fontWeight:'bold' }}>+</div>
+                  <div style={{ fontSize:13 }}>Toca para agregar video</div>
+                  <div style={{ fontSize:11 }}>Opcional, mejora tus chances de venta</div>
                 </div>
             }
           </label>
@@ -869,9 +899,11 @@ export default function App() {
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
           {productosFiltrados.map(p=>(
             <div key={p.id} style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, overflow:'hidden', boxShadow:'0 2px 12px rgba(0,0,0,0.3)', display:'flex', flexDirection:'column' }}>
-              {p.foto_url
-                ? <img src={p.foto_url} alt={p.titulo} style={{ width:'100%', height:120, objectFit:'cover', display:'block' }} />
-                : <div style={{ height:90, background:'linear-gradient(135deg,'+T.s3+','+T.s4+')', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, color:T.gold, fontWeight:'bold', textAlign:'center', padding:6 }}>{p.categoria?.toUpperCase()}</div>
+              {p.video_url
+                ? <video src={p.video_url} autoPlay muted loop playsInline style={{ width:'100%', height:120, objectFit:'cover', display:'block' }} />
+                : p.foto_url
+                  ? <img src={p.foto_url} alt={p.titulo} style={{ width:'100%', height:120, objectFit:'cover', display:'block' }} />
+                  : <div style={{ height:90, background:'linear-gradient(135deg,'+T.s3+','+T.s4+')', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, color:T.gold, fontWeight:'bold', textAlign:'center', padding:6 }}>{p.categoria?.toUpperCase()}</div>
               }
               <div style={{ padding:'10px 12px', flex:1, display:'flex', flexDirection:'column' }}>
                 <div style={{ fontWeight:700, fontSize:13, marginBottom:4, letterSpacing:'-0.01em', lineHeight:1.3 }}>{p.titulo}</div>
