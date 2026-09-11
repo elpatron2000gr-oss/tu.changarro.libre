@@ -176,16 +176,28 @@ function AuthScreen({ onAuth }: any) {
   async function submit() {
     if (!email || !pass) { setError('Completa correo y contrasena'); return }
     if (mode === 'register' && !name) { setError('Completa tu nombre'); return }
+    if (pass.length < 6) { setError('La contrasena debe tener al menos 6 caracteres'); return }
     setLoading(true)
     setError('')
-    const buscar = await supabase.from('usuarios').select('*').eq('email', email).maybeSingle()
-    if (buscar.error) { setLoading(false); setError('Error: ' + buscar.error.message); return }
-    if (buscar.data) { setLoading(false); onAuth({ id: buscar.data.id, nombre: buscar.data.nombre }); return }
-    if (mode === 'login') { setLoading(false); setError('No encontramos esa cuenta. Proba registrarte.'); return }
-    const crear = await supabase.from('usuarios').insert([{ nombre: name, email: email }]).select().single()
-    setLoading(false)
-    if (crear.error) { setError('Error: ' + crear.error.message); return }
-    onAuth({ id: crear.data.id, nombre: crear.data.nombre })
+
+    if (mode === 'register') {
+      const { data, error: signUpError } = await supabase.auth.signUp({ email, password: pass })
+      if (signUpError) { setLoading(false); setError('Error: ' + signUpError.message); return }
+      const authId = data.user?.id
+      if (!authId) { setLoading(false); setError('No se pudo crear la cuenta'); return }
+      const crear = await supabase.from('usuarios').insert([{ auth_id: authId, nombre: name, email }]).select().single()
+      setLoading(false)
+      if (crear.error) { setError('Error: ' + crear.error.message); return }
+      onAuth({ id: crear.data.id, nombre: crear.data.nombre })
+    } else {
+      const { data, error: loginError } = await supabase.auth.signInWithPassword({ email, password: pass })
+      if (loginError) { setLoading(false); setError('Correo o contrasena incorrectos'); return }
+      const authId = data.user?.id
+      const buscar = await supabase.from('usuarios').select('*').eq('auth_id', authId).maybeSingle()
+      setLoading(false)
+      if (buscar.error || !buscar.data) { setError('No encontramos tu perfil'); return }
+      onAuth({ id: buscar.data.id, nombre: buscar.data.nombre })
+    }
   }
 
   return (
@@ -214,7 +226,7 @@ function AuthScreen({ onAuth }: any) {
         <div style={{ marginBottom:16 }}><Input value={email} onChange={(e:any)=>setEmail(e.target.value)} placeholder="tu@email.com" type="email" /></div>
         <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Contrasena</label>
         <div style={{ position:'relative', marginBottom:22 }}>
-          <Input value={pass} onChange={(e:any)=>setPass(e.target.value)} placeholder="••••••••" type={showPass?'text':'password'} />
+          <Input value={pass} onChange={(e:any)=>setPass(e.target.value)} placeholder="Minimo 6 caracteres" type={showPass?'text':'password'} />
           <button onClick={()=>setShowPass(s=>!s)} style={{ position:'absolute', right:14, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', color:T.muted, cursor:'pointer', fontSize:13 }}>
             {showPass?'Ocultar':'Ver'}
           </button>
@@ -230,6 +242,7 @@ function AuthScreen({ onAuth }: any) {
 
 export default function App() {
   const [authed, setAuthed] = useState(false)
+  const [checandoSesion, setCheandoSesion] = useState(true)
   const [userId, setUserId] = useState<any>(null)
   const [userName, setUserName] = useState('')
   const [productos, setProductos] = useState<any[]>([])
@@ -282,6 +295,17 @@ export default function App() {
     await cargarFavoritos(user.id)
   }
 
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (data.session) {
+        const authId = data.session.user.id
+        const res = await supabase.from('usuarios').select('*').eq('auth_id', authId).maybeSingle()
+        if (res.data) await handleAuth({ id: res.data.id, nombre: res.data.nombre })
+      }
+      setCheandoSesion(false)
+    })
+  }, [])
+
   async function cargarProductos() {
     setCargando(true)
     const res = await supabase.from('publicaciones').select('*').order('fecha_publicacion', { ascending: false })
@@ -324,7 +348,7 @@ export default function App() {
   async function enviarMensaje() {
     if (!chatTexto.trim()) return
     setEnviando(true)
-    const res = await supabase.from('mensajes').insert([{ de_usuario_id: userId, para_usuario_id: chatOtroUsuario, publicacion_id: chatProducto.id, texto: chatTexto }]).select().single()
+    const res = await supabase.from('mensajes').insert([{ emisor_id: userId, receptor_id: chatOtroUsuario, publicacion_id: chatProducto.id, contenido: chatTexto }]).select().single()
     setEnviando(false)
     if (!res.error) { setChatMensajes([...chatMensajes, res.data]); setChatTexto('') }
   }
@@ -397,14 +421,14 @@ export default function App() {
     setCargandoMensajes(true)
     const res = await supabase.from('mensajes')
       .select('*')
-      .or('de_usuario_id.eq.' + userId + ',para_usuario_id.eq.' + userId)
+      .or('emisor_id.eq.' + userId + ',receptor_id.eq.' + userId)
       .order('fecha', { ascending: false })
     if (res.error) { setCargandoMensajes(false); return }
 
     const vistos = new Set()
     const conversaciones: any[] = []
     for (const m of res.data) {
-      const otro = m.de_usuario_id === userId ? m.para_usuario_id : m.de_usuario_id
+      const otro = m.emisor_id === userId ? m.receptor_id : m.emisor_id
       const key = m.publicacion_id + '-' + otro
       if (!vistos.has(key)) {
         vistos.add(key)
@@ -452,7 +476,8 @@ export default function App() {
     setVista('perfil')
   }
 
-  function cerrarSesion() {
+  async function cerrarSesion() {
+    await supabase.auth.signOut()
     setAuthed(false)
     setUserId(null)
     setUserName('')
@@ -467,8 +492,8 @@ export default function App() {
     setEliminandoCuenta(true)
     setMensajeConfig('')
     const res = await supabase.from('usuarios').delete().eq('id', userId)
+    if (res.error) { setEliminandoCuenta(false); setMensajeConfig('Error: ' + res.error.message); return }
     setEliminandoCuenta(false)
-    if (res.error) { setMensajeConfig('Error: ' + res.error.message); return }
     cerrarSesion()
   }
 
@@ -481,6 +506,15 @@ export default function App() {
   const vistasTotales = misPublicaciones.reduce((acc:any, p:any) => acc + (p.vistas || 0), 0)
 
   T = isDarkMode ? DARK : LIGHT
+
+  if (checandoSesion) {
+    return (
+      <div style={{ minHeight:'100vh', background:T.bg, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:T.font, color:T.muted }}>
+        <link href={FONTS} rel="stylesheet" />
+        Cargando...
+      </div>
+    )
+  }
 
   if (!authed) return <AuthScreen onAuth={handleAuth} />
 
@@ -501,11 +535,11 @@ export default function App() {
             <div style={{ textAlign:'center', padding:'40px 20px', color:T.muted }}>Se el primero en escribir</div>
           )}
           {chatMensajes.map(m=>(
-            <div key={m.id} style={{ maxWidth:'80%', alignSelf:m.de_usuario_id===userId?'flex-end':'flex-start' }}>
-              <div style={{ background:m.de_usuario_id===userId?T.gold:T.s2, color:m.de_usuario_id===userId?'#0a0a0a':T.text, padding:'10px 14px', borderRadius:14, fontSize:14 }}>
-                {m.texto}
+            <div key={m.id} style={{ maxWidth:'80%', alignSelf:m.emisor_id===userId?'flex-end':'flex-start' }}>
+              <div style={{ background:m.emisor_id===userId?T.gold:T.s2, color:m.emisor_id===userId?'#0a0a0a':T.text, padding:'10px 14px', borderRadius:14, fontSize:14 }}>
+                {m.contenido}
               </div>
-              <div style={{ fontSize:10, color:T.muted, marginTop:4, textAlign:m.de_usuario_id===userId?'right':'left' }}>
+              <div style={{ fontSize:10, color:T.muted, marginTop:4, textAlign:m.emisor_id===userId?'right':'left' }}>
                 {tiempoTranscurrido(m.fecha)}
               </div>
             </div>
@@ -553,7 +587,7 @@ export default function App() {
               }
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ fontWeight:700, fontSize:13, marginBottom:2 }}>{c.producto?.titulo || 'Producto'}</div>
-                <div style={{ fontSize:12, color:T.muted, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.texto}</div>
+                <div style={{ fontSize:12, color:T.muted, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.contenido}</div>
               </div>
               <div style={{ fontSize:10, color:T.muted, flexShrink:0 }}>{tiempoTranscurrido(c.fecha)}</div>
             </button>
