@@ -94,6 +94,26 @@ function Toggle({ label, sub, value, onChange }: any) {
   )
 }
 
+function InfoRow({ label, value, sub }: any) {
+  return (
+    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', padding:'10px 0', borderBottom:'1px solid '+T.border }}>
+      <span style={{ color:T.muted, fontSize:13 }}>{label}</span>
+      <div style={{ textAlign:'right' }}>
+        <div style={{ fontSize:13, fontWeight:600 }}>{value}</div>
+        {sub && <div style={{ fontSize:11, color:T.muted, marginTop:2 }}>{sub}</div>}
+      </div>
+    </div>
+  )
+}
+
+function BackBtn({ onClick }: any) {
+  return (
+    <button onClick={onClick} style={{ background:'none', border:'none', color:T.gold, cursor:'pointer', fontSize:22, fontWeight:'bold', padding:0, lineHeight:1, width:28 }}>
+      ←
+    </button>
+  )
+}
+
 function ReputationRing({ nivel, puntaje, size = 120 }: any) {
   const info = NIVELES[nivel] || NIVELES['Nuevo']
   const radius = (size - 16) / 2
@@ -523,7 +543,7 @@ export default function App() {
       <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', display:'flex', flexDirection:'column' }}>
         <link href={FONTS} rel="stylesheet" />
         <div style={{ background:T.s1, padding:'16px 18px', borderBottom:'1px solid '+T.border, display:'flex', alignItems:'center', gap:12, position:'sticky', top:0, zIndex:60 }}>
-          <button onClick={()=>setVista(chatOrigen)} style={{ background:'none', border:'none', color:T.gold, cursor:'pointer', fontSize:20, fontWeight:'bold', padding:0 }}>Volver</button>
+          <BackBtn onClick={()=>setVista(chatOrigen)} />
           <div style={{ flex:1 }}>
             <div style={{ fontWeight:700, fontSize:15 }}>{chatProducto.titulo}</div>
             <div style={{ fontSize:11, color:T.muted }}>Chat del producto</div>
@@ -562,7 +582,7 @@ export default function App() {
       <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', paddingBottom:100 }}>
         <link href={FONTS} rel="stylesheet" />
         <div style={{ background:T.s1, padding:'16px 18px', borderBottom:'1px solid '+T.border, display:'flex', alignItems:'center', gap:12, position:'sticky', top:0, zIndex:60 }}>
-          <button onClick={()=>setVista('perfil')} style={{ background:'none', border:'none', color:T.gold, cursor:'pointer', fontSize:20, fontWeight:'bold' }}>Volver</button>
+          <BackBtn onClick={()=>setVista('perfil')} />
           <div style={{ fontWeight:700, fontSize:17, flex:1 }}>Mensajes</div>
         </div>
 
@@ -603,7 +623,7 @@ export default function App() {
       <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', paddingBottom:30 }}>
         <link href={FONTS} rel="stylesheet" />
         <div style={{ background:T.s1, padding:'16px 18px', borderBottom:'1px solid '+T.border, display:'flex', alignItems:'center', gap:12, position:'sticky', top:0, zIndex:60 }}>
-          <button onClick={()=>setVista('home')} style={{ background:'none', border:'none', color:T.gold, cursor:'pointer', fontSize:20, fontWeight:'bold' }}>Volver</button>
+          <BackBtn onClick={()=>setVista('home')} />
           <div style={{ fontWeight:700, fontSize:17, flex:1 }}>Publicar producto</div>
         </div>
         <div style={{ padding:'20px 18px' }}>
@@ -665,7 +685,7 @@ export default function App() {
       <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', paddingBottom:30 }}>
         <link href={FONTS} rel="stylesheet" />
         <div style={{ background:T.s1, padding:'16px 18px', borderBottom:'1px solid '+T.border, display:'flex', alignItems:'center', gap:12, position:'sticky', top:0, zIndex:60 }}>
-          <button onClick={()=>setVista('perfil')} style={{ background:'none', border:'none', color:T.gold, cursor:'pointer', fontSize:20, fontWeight:'bold' }}>Volver</button>
+          <BackBtn onClick={()=>setVista('perfil')} />
           <div style={{ fontWeight:700, fontSize:17, flex:1 }}>Editar perfil</div>
         </div>
 
@@ -702,7 +722,7 @@ export default function App() {
       <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', paddingBottom:100 }}>
         <link href={FONTS} rel="stylesheet" />
         <div style={{ background:T.s1, padding:'16px 18px', borderBottom:'1px solid '+T.border, display:'flex', alignItems:'center', gap:12, position:'sticky', top:0, zIndex:60 }}>
-          <button onClick={()=>setVista('home')} style={{ background:'none', border:'none', color:T.gold, cursor:'pointer', fontSize:20, fontWeight:'bold' }}>Volver</button>
+          <BackBtn onClick={()=>setVista('home')} />
           <div style={{ fontWeight:700, fontSize:17, flex:1 }}>Configuracion</div>
         </div>
 
@@ -726,6 +746,20 @@ export default function App() {
               value={notificacionesActivas}
               onChange={()=>setNotificacionesActivas(!notificacionesActivas)}
             />
+          </div>
+
+          <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', marginBottom:6, fontWeight:600, textTransform:'uppercase' }}>Preferencias</div>
+          <div style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, padding:'4px 16px', marginBottom:24 }}>
+            <InfoRow label="Idioma" value="Espanol" sub="Mas idiomas proximamente" />
+            <InfoRow label="Moneda" value="Pesos Argentinos (ARS)" />
+          </div>
+
+          <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', marginBottom:6, fontWeight:600, textTransform:'uppercase' }}>Informacion</div>
+          <div style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, padding:'4px 16px', marginBottom:24 }}>
+            <InfoRow label="Version de la app" value="1.0.0" />
+            <InfoRow label="Ayuda y soporte" value="Proximamente" />
+            <InfoRow label="Terminos y condiciones" value="Proximamente" />
+            <InfoRow label="Politica de privacidad" value="Proximamente" />
           </div>
 
           <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', marginBottom:6, fontWeight:600, textTransform:'uppercase' }}>Cuenta</div>
@@ -843,10 +877,6 @@ export default function App() {
             <div style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, padding:'18px', marginBottom:20 }}>
               <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', fontWeight:600, marginBottom:14, textTransform:'uppercase' }}>Datos de la cuenta</div>
 
-              <div style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid '+T.border }}>
-                <span style={{ color:T.muted, fontSize:13 }}>Correo</span>
-                <span style={{ fontSize:13, fontWeight:600 }}>{perfilData.email}</span>
-              </div>
               <div style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid '+T.border }}>
                 <span style={{ color:T.muted, fontSize:13 }}>Ciudad</span>
                 <span style={{ fontSize:13, fontWeight:600 }}>{perfilData.ciudad || 'No especificada'}</span>
