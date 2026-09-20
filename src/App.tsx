@@ -148,7 +148,7 @@ function ReputationRing({ nivel, puntaje, size = 120 }: any) {
   )
 }
 
-function BottomNav({ vista, setVista, abrirPerfil }: any) {
+function BottomNav({ vista, setVista, abrirPerfil, abrirBandejaMensajes }: any) {
   const item = (label: string, activo: boolean, onClick: any) => (
     <button onClick={onClick} style={{
       background:'none', border:'none', cursor:'pointer', flex:1,
@@ -167,7 +167,7 @@ function BottomNav({ vista, setVista, abrirPerfil }: any) {
       zIndex:70
     }}>
       {item('Inicio', vista==='home', ()=>setVista('home'))}
-      {item('Mapa', vista==='mapa', ()=>setVista('mapa'))}
+      {item('Mensajes', vista==='mensajes', abrirBandejaMensajes)}
 
       <button onClick={()=>setVista('publicar')} style={{
         width:52, height:52, borderRadius:'50%', background:G, border:'4px solid '+T.s1,
@@ -582,7 +582,6 @@ export default function App() {
       <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', paddingBottom:100 }}>
         <link href={FONTS} rel="stylesheet" />
         <div style={{ background:T.s1, padding:'16px 18px', borderBottom:'1px solid '+T.border, display:'flex', alignItems:'center', gap:12, position:'sticky', top:0, zIndex:60 }}>
-          <BackBtn onClick={()=>setVista('perfil')} />
           <div style={{ fontWeight:700, fontSize:17, flex:1 }}>Mensajes</div>
         </div>
 
@@ -613,7 +612,7 @@ export default function App() {
             </button>
           ))}
         </div>
-        <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} />
+        <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} abrirBandejaMensajes={abrirBandejaMensajes} />
       </div>
     )
   }
@@ -797,26 +796,7 @@ export default function App() {
             {mensajeConfig && <p style={{ marginTop:14, color:T.red, fontSize:13, textAlign:'center' }}>{mensajeConfig}</p>}
           </div>
         </div>
-        <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} />
-      </div>
-    )
-  }
-
-  if (vista === 'mapa') {
-    return (
-      <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', paddingBottom:100 }}>
-        <link href={FONTS} rel="stylesheet" />
-        <div style={{ background:T.s1, padding:'16px 18px', borderBottom:'1px solid '+T.border, display:'flex', alignItems:'center', gap:12, position:'sticky', top:0, zIndex:60 }}>
-          <div style={{ fontWeight:700, fontSize:17, flex:1 }}>Mapa</div>
-        </div>
-        <div style={{ padding:'60px 24px', textAlign:'center' }}>
-          <div style={{ fontSize:40, marginBottom:16, color:T.gold, fontWeight:'bold' }}>TCL</div>
-          <div style={{ fontSize:16, fontWeight:700, marginBottom:8 }}>Mapa de publicaciones cercanas</div>
-          <div style={{ fontSize:13, color:T.muted, lineHeight:1.6 }}>
-            Proximamente vas a poder ver los productos cerca tuyo en un mapa. Estamos construyendo esta funcion.
-          </div>
-        </div>
-        <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} />
+        <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} abrirBandejaMensajes={abrirBandejaMensajes} />
       </div>
     )
   }
@@ -824,6 +804,15 @@ export default function App() {
   if (vista === 'perfil') {
     const nivel = perfilData?.nivel_reputacion || 'Nuevo'
     const info = NIVELES[nivel] || NIVELES['Nuevo']
+    const puntaje = perfilData?.puntaje_reputacion || 0
+    const siguienteNivel = info.siguiente
+    const siguienteInfo = siguienteNivel ? NIVELES[siguienteNivel] : null
+    const minActual = info.minPuntaje
+    const minSiguiente = siguienteInfo ? siguienteInfo.minPuntaje : 100
+    const pctProgreso = Math.max(0, Math.min(100, ((puntaje - minActual) / (minSiguiente - minActual)) * 100))
+    const puntosFaltan = siguienteNivel ? Math.max(0, minSiguiente - puntaje) : 0
+
+    const ubicacion = [perfilData?.ciudad, perfilData?.provincia].filter(Boolean).join(', ')
 
     return (
       <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', paddingBottom:100 }}>
@@ -838,52 +827,72 @@ export default function App() {
         {cargandoPerfil && <p style={{ color:T.muted, textAlign:'center', padding:40 }}>Cargando perfil...</p>}
 
         {!cargandoPerfil && perfilData && (
-          <div style={{ padding:'26px 18px' }}>
+          <div style={{ padding:'20px 18px' }}>
 
-            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', marginBottom:22 }}>
-              <ReputationRing nivel={nivel} puntaje={perfilData.puntaje_reputacion || 0} />
+            {/* Tarjeta hero: reputacion + progreso al siguiente nivel */}
+            <div style={{
+              background:'linear-gradient(180deg,'+T.s1+' 0%,'+T.s2+' 100%)',
+              border:'1px solid '+T.border2, borderRadius:24, padding:'28px 22px 22px',
+              marginBottom:16, textAlign:'center', boxShadow:'0 0 40px '+T.glow3
+            }}>
+              <ReputationRing nivel={nivel} puntaje={puntaje} />
               <div style={{ fontSize:20, fontWeight:800, marginTop:14 }}>{perfilData.nombre}</div>
               <div style={{
                 marginTop:8, padding:'4px 14px', borderRadius:20, fontSize:12, fontWeight:700,
-                color: info.color, border:'1px solid '+info.color, background: info.color+'18'
+                color: info.color, border:'1px solid '+info.color, background: info.color+'18',
+                display:'inline-block'
               }}>
                 {nivel}
               </div>
+
+              {siguienteNivel ? (
+                <div style={{ marginTop:18 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:T.muted, marginBottom:6 }}>
+                    <span>{nivel}</span>
+                    <span>{siguienteNivel}</span>
+                  </div>
+                  <div style={{ height:6, borderRadius:10, background:T.s3, overflow:'hidden' }}>
+                    <div style={{ height:'100%', width:pctProgreso+'%', background:G, borderRadius:10, transition:'width 1s ease-out' }} />
+                  </div>
+                  <div style={{ fontSize:11, color:T.muted, marginTop:8 }}>
+                    Te faltan {puntosFaltan} puntos para llegar a {siguienteNivel}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ marginTop:16, fontSize:12, color:T.gold, fontWeight:700 }}>
+                  Alcanzaste el nivel maximo del changarro
+                </div>
+              )}
             </div>
 
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:20 }}>
-              <div style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:14, padding:'14px 8px', textAlign:'center' }}>
+            {/* Stats en fila, con acento de color por metrica */}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:16 }}>
+              <div style={{ background:T.s2, border:'1px solid '+T.border2, borderTop:'3px solid '+T.gold, borderRadius:14, padding:'14px 8px', textAlign:'center' }}>
                 <div style={{ fontSize:20, fontWeight:800, color:T.gold }}>{misPublicaciones.length}</div>
                 <div style={{ fontSize:10, color:T.muted, marginTop:4 }}>Publicados</div>
               </div>
-              <div style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:14, padding:'14px 8px', textAlign:'center' }}>
+              <div style={{ background:T.s2, border:'1px solid '+T.border2, borderTop:'3px solid '+T.green, borderRadius:14, padding:'14px 8px', textAlign:'center' }}>
                 <div style={{ fontSize:20, fontWeight:800, color:T.green }}>{perfilData.cantidad_ventas || 0}</div>
                 <div style={{ fontSize:10, color:T.muted, marginTop:4 }}>Vendidos</div>
               </div>
-              <div style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:14, padding:'14px 8px', textAlign:'center' }}>
+              <div style={{ background:T.s2, border:'1px solid '+T.border2, borderTop:'3px solid '+T.blue, borderRadius:14, padding:'14px 8px', textAlign:'center' }}>
                 <div style={{ fontSize:20, fontWeight:800, color:T.blue }}>{vistasTotales}</div>
                 <div style={{ fontSize:10, color:T.muted, marginTop:4 }}>Vistas</div>
               </div>
             </div>
 
-            <button onClick={abrirBandejaMensajes} style={{
-              width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between',
-              background:T.s2, border:'1px solid '+T.border2, borderRadius:16, padding:'16px 18px', marginBottom:20, cursor:'pointer'
-            }}>
-              <span style={{ fontSize:14, fontWeight:700, color:T.text }}>Mensajes</span>
-              <span style={{ fontSize:12, color:T.gold, fontWeight:700 }}>Ver todos →</span>
-            </button>
-
-            <div style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, padding:'18px', marginBottom:20 }}>
-              <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', fontWeight:600, marginBottom:14, textTransform:'uppercase' }}>Datos de la cuenta</div>
-
-              <div style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid '+T.border }}>
-                <span style={{ color:T.muted, fontSize:13 }}>Ciudad</span>
-                <span style={{ fontSize:13, fontWeight:600 }}>{perfilData.ciudad || 'No especificada'}</span>
-              </div>
-              <div style={{ display:'flex', justifyContent:'space-between', padding:'8px 0' }}>
-                <span style={{ color:T.muted, fontSize:13 }}>Provincia</span>
-                <span style={{ fontSize:13, fontWeight:600 }}>{perfilData.provincia || 'No especificada'}</span>
+            {/* Mensajes + ubicacion, compactos, uno al lado del otro */}
+            <div style={{ display:'flex', gap:10, marginBottom:20 }}>
+              <button onClick={abrirBandejaMensajes} style={{
+                flex:1, background:T.s2, border:'1px solid '+T.border2, borderRadius:16,
+                padding:'14px', cursor:'pointer', textAlign:'left'
+              }}>
+                <div style={{ fontSize:11, color:T.muted, marginBottom:2 }}>Bandeja</div>
+                <div style={{ fontSize:14, fontWeight:700, color:T.gold }}>Mensajes →</div>
+              </button>
+              <div style={{ flex:1, background:T.s2, border:'1px solid '+T.border2, borderRadius:16, padding:'14px' }}>
+                <div style={{ fontSize:11, color:T.muted, marginBottom:2 }}>Ubicacion</div>
+                <div style={{ fontSize:14, fontWeight:700 }}>{ubicacion || 'No especificada'}</div>
               </div>
             </div>
 
@@ -898,25 +907,35 @@ export default function App() {
               </div>
             )}
 
-            {misPublicaciones.map((p:any)=>(
-              <div key={p.id} style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, marginBottom:12, overflow:'hidden', display:'flex' }}>
-                {p.foto_url
-                  ? <img src={p.foto_url} alt={p.titulo} style={{ width:90, height:90, objectFit:'cover', flexShrink:0 }} />
-                  : <div style={{ width:90, height:90, flexShrink:0, background:'linear-gradient(135deg,'+T.s3+','+T.s4+')', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, color:T.gold, fontWeight:'bold', textAlign:'center', padding:6 }}>{p.categoria?.toUpperCase()}</div>
-                }
-                <div style={{ padding:'12px 14px', flex:1, display:'flex', flexDirection:'column', justifyContent:'center' }}>
-                  <div style={{ fontWeight:700, fontSize:14, marginBottom:4 }}>{p.titulo}</div>
-                  <div style={{ color:T.gold, fontWeight:800, fontSize:15, marginBottom:4 }}>${Number(p.precio).toLocaleString()}</div>
-                  <div style={{ fontSize:11, color:T.muted, marginBottom:8 }}>{p.vistas || 0} vistas · {tiempoTranscurrido(p.fecha_publicacion)}</div>
-                  <button onClick={()=>eliminarPublicacion(p.id)} style={{ alignSelf:'flex-start', background:'none', border:'1px solid '+T.red, color:T.red, borderRadius:10, padding:'4px 12px', fontSize:11, fontWeight:700, cursor:'pointer' }}>
-                    Eliminar
-                  </button>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+              {misPublicaciones.map((p:any)=>(
+                <div key={p.id} style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, overflow:'hidden' }}>
+                  <div style={{ position:'relative' }}>
+                    {p.foto_url
+                      ? <img src={p.foto_url} alt={p.titulo} style={{ width:'100%', height:110, objectFit:'cover', display:'block' }} />
+                      : <div style={{ height:90, background:'linear-gradient(135deg,'+T.s3+','+T.s4+')', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, color:T.gold, fontWeight:'bold', textAlign:'center', padding:6 }}>{p.categoria?.toUpperCase()}</div>
+                    }
+                    <div style={{
+                      position:'absolute', top:8, right:8, background:'rgba(0,0,0,0.65)', color:'#fff',
+                      fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:20
+                    }}>
+                      {p.vistas || 0} vistas
+                    </div>
+                  </div>
+                  <div style={{ padding:'10px 12px' }}>
+                    <div style={{ fontWeight:700, fontSize:13, marginBottom:4, lineHeight:1.3 }}>{p.titulo}</div>
+                    <div style={{ color:T.gold, fontWeight:800, fontSize:15, marginBottom:4 }}>${Number(p.precio).toLocaleString()}</div>
+                    <div style={{ fontSize:10, color:T.muted, marginBottom:8 }}>{tiempoTranscurrido(p.fecha_publicacion)}</div>
+                    <button onClick={()=>eliminarPublicacion(p.id)} style={{ width:'100%', background:'none', border:'1px solid '+T.red, color:T.red, borderRadius:10, padding:'6px', fontSize:11, fontWeight:700, cursor:'pointer' }}>
+                      Eliminar
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
-        <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} />
+        <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} abrirBandejaMensajes={abrirBandejaMensajes} />
       </div>
     )
   }
@@ -987,7 +1006,7 @@ export default function App() {
         </div>
       </div>
 
-      <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} />
+      <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} abrirBandejaMensajes={abrirBandejaMensajes} />
     </div>
   )
 }
