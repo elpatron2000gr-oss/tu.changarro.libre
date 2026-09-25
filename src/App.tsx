@@ -114,7 +114,7 @@ function BackBtn({ onClick }: any) {
   )
 }
 
-function ReputationRing({ nivel, puntaje, size = 120 }: any) {
+function ReputationRing({ nivel, puntaje, avatarUrl, iniciales, size = 120 }: any) {
   const info = NIVELES[nivel] || NIVELES['Nuevo']
   const radius = (size - 16) / 2
   const circumference = 2 * Math.PI * radius
@@ -127,6 +127,7 @@ function ReputationRing({ nivel, puntaje, size = 120 }: any) {
   }, [pctVisual])
 
   const offset = circumference - (animado / 100) * circumference
+  const inner = size - 26
 
   return (
     <div style={{ position:'relative', width:size, height:size }}>
@@ -140,9 +141,13 @@ function ReputationRing({ nivel, puntaje, size = 120 }: any) {
           style={{ transition:'stroke-dashoffset 1.2s ease-out' }}
         />
       </svg>
-      <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
-        <div style={{ fontSize:22, fontWeight:800, color:info.color }}>{puntaje}</div>
-        <div style={{ fontSize:10, color:T.muted, letterSpacing:'0.05em' }}>PUNTOS</div>
+      <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
+        {avatarUrl
+          ? <img src={avatarUrl} style={{ width:inner, height:inner, borderRadius:'50%', objectFit:'cover' }} />
+          : <div style={{ width:inner, height:inner, borderRadius:'50%', background:G, display:'flex', alignItems:'center', justifyContent:'center', fontSize:Math.round(inner*0.36), fontWeight:800, color:'#0a0a0a' }}>
+              {iniciales}
+            </div>
+        }
       </div>
     </div>
   )
@@ -298,6 +303,8 @@ export default function App() {
   const [editNombre, setEditNombre] = useState('')
   const [editCiudad, setEditCiudad] = useState('')
   const [editProvincia, setEditProvincia] = useState('')
+  const [avatarFile, setAvatarFile] = useState<any>(null)
+  const [avatarPreview, setAvatarPreview] = useState<any>(null)
   const [guardandoPerfil, setGuardandoPerfil] = useState(false)
   const [mensajeEditar, setMensajeEditar] = useState('')
 
@@ -389,6 +396,15 @@ export default function App() {
     setVideoPreview(URL.createObjectURL(file))
   }
 
+  function handleAvatar(e: any) {
+    const file = e.target.files[0]
+    if (!file) return
+    setAvatarFile(file)
+    const reader = new FileReader()
+    reader.onload = (ev:any) => setAvatarPreview(ev.target.result)
+    reader.readAsDataURL(file)
+  }
+
   async function publicar() {
     if (!titulo || !precio) { setMensajePublicar('Completa titulo y precio'); return }
     setPublicando(true)
@@ -476,6 +492,8 @@ export default function App() {
     setEditNombre(perfilData?.nombre || '')
     setEditCiudad(perfilData?.ciudad || '')
     setEditProvincia(perfilData?.provincia || '')
+    setAvatarFile(null)
+    setAvatarPreview(perfilData?.avatar_url || null)
     setMensajeEditar('')
     setVista('editarPerfil')
   }
@@ -484,8 +502,17 @@ export default function App() {
     if (!editNombre.trim()) { setMensajeEditar('El nombre no puede estar vacio'); return }
     setGuardandoPerfil(true)
     setMensajeEditar('')
+    let avatarUrl = perfilData?.avatar_url || null
+    if (avatarFile) {
+      const ext = avatarFile.name.split('.').pop()
+      const path = 'avatar-' + userId + '-' + Date.now() + '.' + ext
+      const subida = await supabase.storage.from('fotos').upload(path, avatarFile)
+      if (subida.error) { setGuardandoPerfil(false); setMensajeEditar('Error subiendo la foto: ' + subida.error.message); return }
+      const url = supabase.storage.from('fotos').getPublicUrl(path)
+      avatarUrl = url.data.publicUrl
+    }
     const res = await supabase.from('usuarios')
-      .update({ nombre: editNombre, ciudad: editCiudad, provincia: editProvincia })
+      .update({ nombre: editNombre, ciudad: editCiudad, provincia: editProvincia, avatar_url: avatarUrl })
       .eq('id', userId)
       .select()
       .single()
@@ -493,6 +520,7 @@ export default function App() {
     if (res.error) { setMensajeEditar('Error: ' + res.error.message); return }
     setPerfilData(res.data)
     setUserName(res.data.nombre)
+    setAvatarFile(null)
     setVista('perfil')
   }
 
@@ -689,6 +717,18 @@ export default function App() {
         </div>
 
         <div style={{ padding:'20px 18px' }}>
+          <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:12, fontWeight:600, textTransform:'uppercase', textAlign:'center' }}>Foto de perfil</label>
+          <input type="file" accept="image/*" onChange={handleAvatar} style={{ display:'none' }} id="avatarInput" />
+          <label htmlFor="avatarInput" style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:10, marginBottom:26, cursor:'pointer' }}>
+            {avatarPreview
+              ? <img src={avatarPreview} style={{ width:96, height:96, borderRadius:'50%', objectFit:'cover', border:'2px solid '+T.gold }} />
+              : <div style={{ width:96, height:96, borderRadius:'50%', background:T.s2, border:'2px dashed '+T.border2, display:'flex', alignItems:'center', justifyContent:'center', color:T.gold, fontSize:28, fontWeight:800 }}>
+                  {(editNombre || '?').charAt(0).toUpperCase()}
+                </div>
+            }
+            <div style={{ fontSize:12, color:T.gold, fontWeight:700 }}>Cambiar foto</div>
+          </label>
+
           <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Nombre *</label>
           <Input value={editNombre} onChange={(e:any)=>setEditNombre(e.target.value)} placeholder="Tu nombre" style={{ marginBottom:16 }} />
 
@@ -811,8 +851,8 @@ export default function App() {
     const minSiguiente = siguienteInfo ? siguienteInfo.minPuntaje : 100
     const pctProgreso = Math.max(0, Math.min(100, ((puntaje - minActual) / (minSiguiente - minActual)) * 100))
     const puntosFaltan = siguienteNivel ? Math.max(0, minSiguiente - puntaje) : 0
-
     const ubicacion = [perfilData?.ciudad, perfilData?.provincia].filter(Boolean).join(', ')
+    const iniciales = perfilData ? (perfilData.nombre || '?').charAt(0).toUpperCase() : '?'
 
     return (
       <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', paddingBottom:100 }}>
@@ -829,40 +869,45 @@ export default function App() {
         {!cargandoPerfil && perfilData && (
           <div style={{ padding:'20px 18px' }}>
 
-            {/* Tarjeta hero: reputacion + progreso al siguiente nivel */}
-            <div style={{
-              background:'linear-gradient(180deg,'+T.s1+' 0%,'+T.s2+' 100%)',
-              border:'1px solid '+T.border2, borderRadius:24, padding:'28px 22px 22px',
-              marginBottom:16, textAlign:'center', boxShadow:'0 0 40px '+T.glow3
-            }}>
-              <ReputationRing nivel={nivel} puntaje={puntaje} />
-              <div style={{ fontSize:20, fontWeight:800, marginTop:14 }}>{perfilData.nombre}</div>
-              <div style={{
-                marginTop:8, padding:'4px 14px', borderRadius:20, fontSize:12, fontWeight:700,
-                color: info.color, border:'1px solid '+info.color, background: info.color+'18',
-                display:'inline-block'
-              }}>
-                {nivel}
-              </div>
+            {/* Tarjeta hero: portada + foto de perfil dentro del ring + progreso al siguiente nivel */}
+            <div style={{ borderRadius:24, overflow:'hidden', border:'1px solid '+T.border2, marginBottom:16, boxShadow:'0 0 40px '+T.glow3 }}>
+              <div style={{ height:76, background:G }} />
+              <div style={{ background:T.s2, padding:'0 22px 22px', textAlign:'center' }}>
+                <div style={{
+                  marginTop:-46, display:'inline-block', border:'4px solid '+T.s2,
+                  borderRadius:'50%', background:T.s2, lineHeight:0
+                }}>
+                  <ReputationRing nivel={nivel} puntaje={puntaje} avatarUrl={perfilData.avatar_url} iniciales={iniciales} size={104} />
+                </div>
+                <div style={{ fontSize:20, fontWeight:800, marginTop:12 }}>{perfilData.nombre}</div>
+                <div style={{ fontSize:12, color:T.muted, marginTop:2 }}>{puntaje} puntos</div>
+                <div style={{
+                  marginTop:8, padding:'4px 14px', borderRadius:20, fontSize:12, fontWeight:700,
+                  color: info.color, border:'1px solid '+info.color, background: info.color+'18',
+                  display:'inline-block'
+                }}>
+                  {nivel}
+                </div>
 
-              {siguienteNivel ? (
-                <div style={{ marginTop:18 }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:T.muted, marginBottom:6 }}>
-                    <span>{nivel}</span>
-                    <span>{siguienteNivel}</span>
+                {siguienteNivel ? (
+                  <div style={{ marginTop:18 }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:T.muted, marginBottom:6 }}>
+                      <span>{nivel}</span>
+                      <span>{siguienteNivel}</span>
+                    </div>
+                    <div style={{ height:6, borderRadius:10, background:T.s3, overflow:'hidden' }}>
+                      <div style={{ height:'100%', width:pctProgreso+'%', background:G, borderRadius:10, transition:'width 1s ease-out' }} />
+                    </div>
+                    <div style={{ fontSize:11, color:T.muted, marginTop:8 }}>
+                      Te faltan {puntosFaltan} puntos para llegar a {siguienteNivel}
+                    </div>
                   </div>
-                  <div style={{ height:6, borderRadius:10, background:T.s3, overflow:'hidden' }}>
-                    <div style={{ height:'100%', width:pctProgreso+'%', background:G, borderRadius:10, transition:'width 1s ease-out' }} />
+                ) : (
+                  <div style={{ marginTop:16, fontSize:12, color:T.gold, fontWeight:700 }}>
+                    Alcanzaste el nivel maximo del changarro
                   </div>
-                  <div style={{ fontSize:11, color:T.muted, marginTop:8 }}>
-                    Te faltan {puntosFaltan} puntos para llegar a {siguienteNivel}
-                  </div>
-                </div>
-              ) : (
-                <div style={{ marginTop:16, fontSize:12, color:T.gold, fontWeight:700 }}>
-                  Alcanzaste el nivel maximo del changarro
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {/* Stats en fila, con acento de color por metrica */}
