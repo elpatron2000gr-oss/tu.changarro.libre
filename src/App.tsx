@@ -286,8 +286,8 @@ export default function App() {
   const [precio, setPrecio] = useState('')
   const [categoria, setCategoria] = useState('Electronica')
   const [descripcion, setDescripcion] = useState('')
-  const [fotoFile, setFotoFile] = useState<any>(null)
-  const [fotoPreview, setFotoPreview] = useState<any>(null)
+  const [fotoFiles, setFotoFiles] = useState<any[]>([])
+  const [fotoPreviews, setFotoPreviews] = useState<any[]>([])
   const [videoFile, setVideoFile] = useState<any>(null)
   const [videoPreview, setVideoPreview] = useState<any>(null)
   const [publicando, setPublicando] = useState(false)
@@ -313,6 +313,11 @@ export default function App() {
   const [confirmandoEliminar, setConfirmandoEliminar] = useState(false)
   const [eliminandoCuenta, setEliminandoCuenta] = useState(false)
   const [mensajeConfig, setMensajeConfig] = useState('')
+
+  const [detalleProducto, setDetalleProducto] = useState<any>(null)
+  const [detalleIndex, setDetalleIndex] = useState(0)
+  const [detalleVendedor, setDetalleVendedor] = useState<any>(null)
+  const [detalleOrigen, setDetalleOrigen] = useState('home')
 
   async function handleAuth(user: any) {
     setUserId(user.id)
@@ -356,11 +361,18 @@ export default function App() {
     }
   }
 
-  async function abrirProductoDesdeHome(p: any) {
+  // ---- DETALLE DE PRODUCTO ----
+  async function abrirDetalle(p: any, origen: string = 'home') {
     if (p.vendedor_id !== userId) {
       supabase.from('publicaciones').update({ vistas: (p.vistas || 0) + 1 }).eq('id', p.id).then(()=>{})
     }
-    abrirChat(p, p.vendedor_id, 'home')
+    setDetalleProducto(p)
+    setDetalleIndex(0)
+    setDetalleVendedor(null)
+    setDetalleOrigen(origen)
+    setVista('detalle')
+    const resVend = await supabase.from('usuarios').select('nombre,ciudad,provincia,nivel_reputacion,avatar_url').eq('id', p.vendedor_id).maybeSingle()
+    if (!resVend.error) setDetalleVendedor(resVend.data)
   }
 
   async function abrirChat(p: any, otroUsuarioId: any, origen: string = 'home') {
@@ -380,13 +392,18 @@ export default function App() {
     if (!res.error) { setChatMensajes([...chatMensajes, res.data]); setChatTexto('') }
   }
 
-  function handleFoto(e: any) {
-    const file = e.target.files[0]
-    if (!file) return
-    setFotoFile(file)
-    const reader = new FileReader()
-    reader.onload = (ev:any) => setFotoPreview(ev.target.result)
-    reader.readAsDataURL(file)
+  function handleFotos(e: any) {
+    const files = Array.from(e.target.files || []) as any[]
+    if (files.length === 0) return
+    setFotoFiles(prev => [...prev, ...files])
+    const previews = files.map((f:any) => URL.createObjectURL(f))
+    setFotoPreviews(prev => [...prev, ...previews])
+    e.target.value = ''
+  }
+
+  function quitarFoto(idx: number) {
+    setFotoFiles(prev => prev.filter((_,i)=>i!==idx))
+    setFotoPreviews(prev => prev.filter((_,i)=>i!==idx))
   }
 
   function handleVideo(e: any) {
@@ -409,14 +426,22 @@ export default function App() {
     if (!titulo || !precio) { setMensajePublicar('Completa titulo y precio'); return }
     setPublicando(true)
     setMensajePublicar('')
+
     let fotoUrl = null
-    if (fotoFile) {
-      const ext = fotoFile.name.split('.').pop()
-      const path = userId + '-' + Date.now() + '.' + ext
-      const subida = await supabase.storage.from('fotos').upload(path, fotoFile)
-      if (!subida.error) { const url = supabase.storage.from('fotos').getPublicUrl(path); fotoUrl = url.data.publicUrl }
-      else { setPublicando(false); setMensajePublicar('Error subiendo la foto: ' + subida.error.message); return }
+    let fotosExtra: string[] = []
+    if (fotoFiles.length > 0) {
+      for (let i = 0; i < fotoFiles.length; i++) {
+        const file = fotoFiles[i]
+        const ext = file.name.split('.').pop()
+        const path = userId + '-' + Date.now() + '-' + i + '.' + ext
+        const subida = await supabase.storage.from('fotos').upload(path, file)
+        if (subida.error) { setPublicando(false); setMensajePublicar('Error subiendo una foto: ' + subida.error.message); return }
+        const url = supabase.storage.from('fotos').getPublicUrl(path).data.publicUrl
+        if (i === 0) fotoUrl = url
+        else fotosExtra.push(url)
+      }
     }
+
     let videoUrl = null
     if (videoFile) {
       const ext = videoFile.name.split('.').pop()
@@ -425,10 +450,14 @@ export default function App() {
       if (!subidaVideo.error) { const url = supabase.storage.from('videos').getPublicUrl(path); videoUrl = url.data.publicUrl }
       else { setPublicando(false); setMensajePublicar('Error subiendo el video: ' + subidaVideo.error.message); return }
     }
-    const res = await supabase.from('publicaciones').insert([{ vendedor_id: userId, titulo, precio: Number(precio), categoria, descripcion, foto_url: fotoUrl, video_url: videoUrl }]).select().single()
+
+    const res = await supabase.from('publicaciones').insert([{
+      vendedor_id: userId, titulo, precio: Number(precio), categoria, descripcion,
+      foto_url: fotoUrl, fotos_extra_urls: fotosExtra.length ? fotosExtra : null, video_url: videoUrl
+    }]).select().single()
     setPublicando(false)
     if (res.error) { setMensajePublicar('Error: ' + res.error.message); return }
-    setTitulo(''); setPrecio(''); setDescripcion(''); setFotoFile(null); setFotoPreview(null); setVideoFile(null); setVideoPreview(null)
+    setTitulo(''); setPrecio(''); setDescripcion(''); setFotoFiles([]); setFotoPreviews([]); setVideoFile(null); setVideoPreview(null)
     setVista('home')
     cargarProductos()
   }
@@ -566,6 +595,125 @@ export default function App() {
 
   if (!authed) return <AuthScreen onAuth={handleAuth} />
 
+  // ============================================
+  // VISTA: DETALLE DE PRODUCTO (nueva)
+  // ============================================
+  if (vista === 'detalle' && detalleProducto) {
+    const p = detalleProducto
+    const medios: any[] = []
+    if (p.foto_url) medios.push({ tipo:'img', url:p.foto_url })
+    if (p.fotos_extra_urls) p.fotos_extra_urls.forEach((u:any)=> medios.push({ tipo:'img', url:u }))
+    if (p.video_url) medios.push({ tipo:'video', url:p.video_url })
+
+    const esFav = favoritos.includes(p.id)
+
+    return (
+      <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', paddingBottom:90 }}>
+        <link href={FONTS} rel="stylesheet" />
+        <div style={{ background:T.s1, padding:'16px 18px', borderBottom:'1px solid '+T.border, display:'flex', alignItems:'center', gap:12, position:'sticky', top:0, zIndex:60 }}>
+          <BackBtn onClick={()=>setVista(detalleOrigen)} />
+          <div style={{ fontWeight:700, fontSize:16, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.titulo}</div>
+        </div>
+
+        {/* Galeria */}
+        <div style={{ position:'relative', background:T.s2 }}>
+          {medios.length === 0 ? (
+            <div style={{ height:280, background:'linear-gradient(135deg,'+T.s3+','+T.s4+')', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, color:T.gold, fontWeight:'bold' }}>
+              {p.categoria?.toUpperCase()}
+            </div>
+          ) : medios[detalleIndex].tipo === 'video' ? (
+            <video src={medios[detalleIndex].url} controls style={{ width:'100%', height:280, objectFit:'cover', display:'block', background:'#000' }} />
+          ) : (
+            <img src={medios[detalleIndex].url} style={{ width:'100%', height:280, objectFit:'cover', display:'block' }} />
+          )}
+
+          {medios.length > 1 && (
+            <>
+              {detalleIndex > 0 && (
+                <button onClick={()=>setDetalleIndex(i=>i-1)} style={{
+                  position:'absolute', left:10, top:'50%', transform:'translateY(-50%)',
+                  background:'rgba(0,0,0,0.5)', color:'#fff', border:'none', borderRadius:'50%',
+                  width:34, height:34, fontSize:18, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center'
+                }}>←</button>
+              )}
+              {detalleIndex < medios.length - 1 && (
+                <button onClick={()=>setDetalleIndex(i=>i+1)} style={{
+                  position:'absolute', right:10, top:'50%', transform:'translateY(-50%)',
+                  background:'rgba(0,0,0,0.5)', color:'#fff', border:'none', borderRadius:'50%',
+                  width:34, height:34, fontSize:18, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center'
+                }}>→</button>
+              )}
+              <div style={{ position:'absolute', bottom:10, left:0, right:0, display:'flex', justifyContent:'center', gap:6 }}>
+                {medios.map((_:any,i:number)=>(
+                  <div key={i} onClick={()=>setDetalleIndex(i)} style={{
+                    width:7, height:7, borderRadius:'50%', cursor:'pointer',
+                    background: i===detalleIndex ? T.gold : 'rgba(255,255,255,0.5)'
+                  }} />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        <div style={{ padding:'18px' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10 }}>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:18, fontWeight:800, marginBottom:4 }}>{p.titulo}</div>
+              <div style={{ fontSize:12, color:T.muted, background:T.s3, display:'inline-block', padding:'2px 10px', borderRadius:20 }}>{p.categoria}</div>
+            </div>
+            <div style={{ color:T.gold, fontWeight:800, fontSize:22, marginLeft:12 }}>${Number(p.precio).toLocaleString()}</div>
+          </div>
+
+          <div style={{ fontSize:11, color:T.muted, marginBottom:16 }}>
+            {p.vistas || 0} vistas · {tiempoTranscurrido(p.fecha_publicacion)}
+          </div>
+
+          {p.descripcion && (
+            <div style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, padding:'16px', marginBottom:16 }}>
+              <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', fontWeight:600, marginBottom:10, textTransform:'uppercase' }}>Descripcion</div>
+              <div style={{ fontSize:14, color:T.sub, lineHeight:1.6 }}>{p.descripcion}</div>
+            </div>
+          )}
+
+          {detalleVendedor && (
+            <div style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, padding:'14px 16px', marginBottom:16, display:'flex', alignItems:'center', gap:12 }}>
+              {detalleVendedor.avatar_url
+                ? <img src={detalleVendedor.avatar_url} style={{ width:44, height:44, borderRadius:'50%', objectFit:'cover' }} />
+                : <div style={{ width:44, height:44, borderRadius:'50%', background:G, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, fontWeight:800, color:'#0a0a0a' }}>
+                    {(detalleVendedor.nombre || '?').charAt(0).toUpperCase()}
+                  </div>
+              }
+              <div style={{ flex:1 }}>
+                <div style={{ fontWeight:700, fontSize:14 }}>{detalleVendedor.nombre}</div>
+                <div style={{ fontSize:11, color:T.muted }}>
+                  {[detalleVendedor.ciudad, detalleVendedor.provincia].filter(Boolean).join(', ') || 'Ubicacion no especificada'}
+                </div>
+              </div>
+              <div style={{ fontSize:11, fontWeight:700, color:(NIVELES[detalleVendedor.nivel_reputacion]||NIVELES['Nuevo']).color }}>
+                {detalleVendedor.nivel_reputacion || 'Nuevo'}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Barra de acciones fija */}
+        <div style={{
+          position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)',
+          width:'100%', maxWidth:430, background:T.s1, borderTop:'1px solid '+T.border,
+          padding:'12px 18px', display:'flex', gap:10, zIndex:70
+        }}>
+          <GBtn full onClick={()=>abrirChat(p, p.vendedor_id, 'detalle')}>Contactar vendedor</GBtn>
+          <button onClick={()=>toggleFavorito(p.id)} style={{
+            padding:'0 16px', borderRadius:14, border:'1px solid '+(esFav?T.gold:T.border2),
+            background:esFav?T.gold+'22':'transparent', color:esFav?T.gold:T.muted, fontWeight:700, fontSize:13, cursor:'pointer'
+          }}>
+            {esFav?'FAV':'fav'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   if (vista === 'chat' && chatProducto) {
     return (
       <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', display:'flex', flexDirection:'column' }}>
@@ -654,18 +802,31 @@ export default function App() {
           <div style={{ fontWeight:700, fontSize:17, flex:1 }}>Publicar producto</div>
         </div>
         <div style={{ padding:'20px 18px' }}>
-          <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Foto del producto</label>
-          <input type="file" accept="image/*" onChange={handleFoto} style={{ display:'none' }} id="fotoInput" />
-          <label htmlFor="fotoInput" style={{ display:'block', width:'100%', height:180, borderRadius:16, border:'2px dashed '+(fotoPreview?T.gold:T.border2), background:T.s2, cursor:'pointer', marginBottom:18, overflow:'hidden', boxSizing:'border-box' }}>
-            {fotoPreview
-              ? <img src={fotoPreview} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-              : <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', color:T.muted, gap:8 }}>
-                  <div style={{ fontSize:36, color:T.gold, fontWeight:'bold' }}>+</div>
-                  <div style={{ fontSize:13 }}>Toca para agregar foto</div>
-                  <div style={{ fontSize:11 }}>Camara o galeria</div>
-                </div>
-            }
-          </label>
+          <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Fotos del producto</label>
+          <input type="file" accept="image/*" multiple onChange={handleFotos} style={{ display:'none' }} id="fotoInput" />
+          <div style={{ display:'flex', gap:10, overflowX:'auto', marginBottom:18, paddingBottom:4 }}>
+            {fotoPreviews.map((src:any, i:number)=>(
+              <div key={i} style={{ position:'relative', width:90, height:90, flexShrink:0, borderRadius:14, overflow:'hidden' }}>
+                <img src={src} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                <button onClick={()=>quitarFoto(i)} style={{
+                  position:'absolute', top:4, right:4, width:20, height:20, borderRadius:'50%',
+                  background:'rgba(0,0,0,0.7)', color:'#fff', border:'none', fontSize:12, cursor:'pointer', lineHeight:1
+                }}>×</button>
+                {i===0 && (
+                  <div style={{ position:'absolute', bottom:0, left:0, right:0, background:'rgba(0,0,0,0.6)', color:T.gold, fontSize:9, fontWeight:700, textAlign:'center', padding:'2px 0' }}>
+                    PORTADA
+                  </div>
+                )}
+              </div>
+            ))}
+            <label htmlFor="fotoInput" style={{
+              width:90, height:90, flexShrink:0, borderRadius:14, border:'2px dashed '+T.border2, background:T.s2,
+              cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:4, color:T.muted
+            }}>
+              <div style={{ fontSize:24, color:T.gold, fontWeight:'bold' }}>+</div>
+              <div style={{ fontSize:10 }}>Agregar</div>
+            </label>
+          </div>
 
           <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Video del producto (opcional)</label>
           <input type="file" accept="video/*" onChange={handleVideo} style={{ display:'none' }} id="videoInput" />
@@ -869,7 +1030,6 @@ export default function App() {
         {!cargandoPerfil && perfilData && (
           <div style={{ padding:'20px 18px' }}>
 
-            {/* Tarjeta hero: portada + foto de perfil dentro del ring + progreso al siguiente nivel */}
             <div style={{ borderRadius:24, overflow:'hidden', border:'1px solid '+T.border2, marginBottom:16, boxShadow:'0 0 40px '+T.glow3 }}>
               <div style={{ height:76, background:G }} />
               <div style={{ background:T.s2, padding:'0 22px 22px', textAlign:'center' }}>
@@ -910,7 +1070,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Stats en fila, con acento de color por metrica */}
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:16 }}>
               <div style={{ background:T.s2, border:'1px solid '+T.border2, borderTop:'3px solid '+T.gold, borderRadius:14, padding:'14px 8px', textAlign:'center' }}>
                 <div style={{ fontSize:20, fontWeight:800, color:T.gold }}>{misPublicaciones.length}</div>
@@ -926,7 +1085,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Mensajes + ubicacion, compactos, uno al lado del otro */}
             <div style={{ display:'flex', gap:10, marginBottom:20 }}>
               <button onClick={abrirBandejaMensajes} style={{
                 flex:1, background:T.s2, border:'1px solid '+T.border2, borderRadius:16,
@@ -954,7 +1112,7 @@ export default function App() {
 
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
               {misPublicaciones.map((p:any)=>(
-                <div key={p.id} style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, overflow:'hidden' }}>
+                <div key={p.id} onClick={()=>abrirDetalle(p,'perfil')} style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, overflow:'hidden', cursor:'pointer' }}>
                   <div style={{ position:'relative' }}>
                     {p.foto_url
                       ? <img src={p.foto_url} alt={p.titulo} style={{ width:'100%', height:110, objectFit:'cover', display:'block' }} />
@@ -971,7 +1129,7 @@ export default function App() {
                     <div style={{ fontWeight:700, fontSize:13, marginBottom:4, lineHeight:1.3 }}>{p.titulo}</div>
                     <div style={{ color:T.gold, fontWeight:800, fontSize:15, marginBottom:4 }}>${Number(p.precio).toLocaleString()}</div>
                     <div style={{ fontSize:10, color:T.muted, marginBottom:8 }}>{tiempoTranscurrido(p.fecha_publicacion)}</div>
-                    <button onClick={()=>eliminarPublicacion(p.id)} style={{ width:'100%', background:'none', border:'1px solid '+T.red, color:T.red, borderRadius:10, padding:'6px', fontSize:11, fontWeight:700, cursor:'pointer' }}>
+                    <button onClick={(e:any)=>{ e.stopPropagation(); eliminarPublicacion(p.id) }} style={{ width:'100%', background:'none', border:'1px solid '+T.red, color:T.red, borderRadius:10, padding:'6px', fontSize:11, fontWeight:700, cursor:'pointer' }}>
                       Eliminar
                     </button>
                   </div>
@@ -1026,32 +1184,39 @@ export default function App() {
 
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
           {productosFiltrados.map(p=>(
-            <div key={p.id} style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, overflow:'hidden', boxShadow:'0 2px 12px rgba(0,0,0,0.3)', display:'flex', flexDirection:'column' }}>
-              {p.video_url
-                ? <video src={p.video_url} autoPlay muted loop playsInline style={{ width:'100%', height:120, objectFit:'cover', display:'block' }} />
-                : p.foto_url
-                  ? <img src={p.foto_url} alt={p.titulo} style={{ width:'100%', height:120, objectFit:'cover', display:'block' }} />
-                  : <div style={{ height:90, background:'linear-gradient(135deg,'+T.s3+','+T.s4+')', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, color:T.gold, fontWeight:'bold', textAlign:'center', padding:6 }}>{p.categoria?.toUpperCase()}</div>
-              }
-              <div style={{ padding:'10px 12px', flex:1, display:'flex', flexDirection:'column' }}>
-                <div style={{ fontWeight:700, fontSize:13, marginBottom:4, letterSpacing:'-0.01em', lineHeight:1.3 }}>{p.titulo}</div>
-                <div style={{ color:T.gold, fontWeight:800, fontSize:16, marginBottom:4 }}>${Number(p.precio).toLocaleString()}</div>
-                <div style={{ fontSize:10, color:T.muted, marginBottom:8 }}>{tiempoTranscurrido(p.fecha_publicacion)}</div>
-                <div style={{ display:'flex', gap:6, marginTop:'auto' }}>
-                  <button onClick={()=>abrirProductoDesdeHome(p)} style={{ flex:1, padding:'8px', borderRadius:10, border:'none', background:G, color:'#0a0a0a', fontWeight:700, fontSize:11, cursor:'pointer', fontFamily:T.font }}>
-                    Contactar
-                  </button>
-                  <button onClick={()=>toggleFavorito(p.id)} style={{ padding:'8px 10px', borderRadius:10, border:'1px solid '+(favoritos.includes(p.id)?T.gold:T.border2), background:favoritos.includes(p.id)?T.gold+'22':'transparent', color:favoritos.includes(p.id)?T.gold:T.muted, fontWeight:700, fontSize:11, cursor:'pointer' }}>
-                    {favoritos.includes(p.id)?'FAV':'fav'}
-                  </button>
+            <div key={p.id} onClick={()=>abrirDetalle(p,'home')} style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, overflow:'hidden', boxShadow:'0 2px 12px rgba(0,0,0,0.3)', display:'flex', flexDirection:'column', cursor:'pointer' }}>
+              <div style={{ position:'relative' }}>
+                {p.video_url
+                  ? <video src={p.video_url} autoPlay muted loop playsInline style={{ width:'100%', height:120, objectFit:'cover', display:'block' }} />
+                  : p.foto_url
+                    ? <img src={p.foto_url} alt={p.titulo} style={{ width:'100%', height:120, objectFit:'cover', display:'block' }} />
+                    : <div style={{ height:90, background:'linear-gradient(135deg,'+T.s3+','+T.s4+')', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, color:T.gold, fontWeight:'bold', textAlign:'center', padding:6 }}>{p.categoria?.toUpperCase()}</div>
+                }
+                {p.fotos_extra_urls && p.fotos_extra_urls.length > 0 && (
+                  <div style={{ position:'absolute', top:8, right:8, background:'rgba(0,0,0,0.65)', color:'#fff', fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:20 }}>
+                  +{p.fotos_extra_urls.length}
                 </div>
-              </div>
+              )}
+              <button onClick={(e:any)=>{ e.stopPropagation(); toggleFavorito(p.id) }} style={{
+                position:'absolute', bottom:8, right:8, padding:'6px 10px', borderRadius:10,
+                border:'1px solid '+(favoritos.includes(p.id)?T.gold:'transparent'),
+                background:favoritos.includes(p.id)?T.gold+'cc':'rgba(0,0,0,0.5)',
+                color:favoritos.includes(p.id)?'#0a0a0a':'#fff', fontWeight:700, fontSize:10, cursor:'pointer'
+              }}>
+                {favoritos.includes(p.id)?'FAV':'fav'}
+              </button>
             </div>
-          ))}
-        </div>
+            <div style={{ padding:'10px 12px', flex:1, display:'flex', flexDirection:'column' }}>
+              <div style={{ fontWeight:700, fontSize:13, marginBottom:4, letterSpacing:'-0.01em', lineHeight:1.3 }}>{p.titulo}</div>
+              <div style={{ color:T.gold, fontWeight:800, fontSize:16, marginBottom:4 }}>${Number(p.precio).toLocaleString()}</div>
+              <div style={{ fontSize:10, color:T.muted }}>{tiempoTranscurrido(p.fecha_publicacion)}</div>
+            </div>
+          </div>
+        ))}
       </div>
-
-      <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} abrirBandejaMensajes={abrirBandejaMensajes} />
     </div>
-  )
+
+    <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} abrirBandejaMensajes={abrirBandejaMensajes} />
+  </div>
+)
 }
