@@ -197,6 +197,13 @@ function AuthScreen({ onAuth }: any) {
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [mensajeExito, setMensajeExito] = useState('')
+
+  function cambiarModo(m: string) {
+    setMode(m)
+    setError('')
+    setMensajeExito('')
+  }
 
   async function submit() {
     if (!email || !pass) { setError('Completa correo y contrasena'); return }
@@ -225,6 +232,17 @@ function AuthScreen({ onAuth }: any) {
     }
   }
 
+  async function enviarRecuperacion() {
+    if (!email) { setError('Ingresa tu correo'); return }
+    setLoading(true)
+    setError('')
+    setMensajeExito('')
+    const { error: recError } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
+    setLoading(false)
+    if (recError) { setError('Error: ' + recError.message); return }
+    setMensajeExito('Listo! Si ese correo tiene cuenta, te enviamos un link para elegir una nueva contrasena. Revisa tambien la carpeta de spam.')
+  }
+
   return (
     <div style={{ minHeight:'100vh', background:T.bg, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'24px 20px', fontFamily:T.font }}>
       <link href={FONTS} rel="stylesheet" />
@@ -233,33 +251,132 @@ function AuthScreen({ onAuth }: any) {
         <div style={{ fontFamily:"'Libre Baskerville',serif", fontSize:28, background:G, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', fontWeight:700 }}>Tu Changarro Libre</div>
         <div style={{ fontSize:10, color:T.muted, letterSpacing:'0.2em', marginTop:5, fontWeight:800 }}>MARKETPLACE</div>
       </div>
+
       <div style={{ width:'100%', maxWidth:390, background:T.s1, borderRadius:24, padding:'28px 24px', border:'1px solid '+T.border2 }}>
-        <div style={{ display:'flex', marginBottom:24, background:T.s2, borderRadius:13, padding:4 }}>
-          {['login','register'].map(m=>(
-            <button key={m} onClick={()=>setMode(m)} style={{ flex:1, padding:10, borderRadius:10, background:mode===m?T.s4:'transparent', border:'none', color:mode===m?T.text:T.muted, fontFamily:T.font, fontWeight:mode===m?700:500, fontSize:14, cursor:'pointer' }}>
-              {m==='login'?'Iniciar sesion':'Registrarse'}
+
+        {mode === 'recuperar' ? (
+          <div>
+            <div style={{ fontSize:18, fontWeight:800, marginBottom:6, color:T.text }}>Recuperar contrasena</div>
+            <div style={{ fontSize:13, color:T.muted, marginBottom:22, lineHeight:1.5 }}>
+              Ingresa tu correo y te enviamos un link para elegir una contrasena nueva.
+            </div>
+            <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Correo electronico</label>
+            <div style={{ marginBottom:22 }}>
+              <Input value={email} onChange={(e:any)=>setEmail(e.target.value)} placeholder="tu@email.com" type="email" />
+            </div>
+            <GBtn full disabled={!email||loading} onClick={enviarRecuperacion}>
+              {loading?'Enviando...':'Enviar link de recuperacion'}
+            </GBtn>
+            <button onClick={()=>cambiarModo('login')} style={{ width:'100%', marginTop:16, background:'none', border:'none', color:T.gold, fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:T.font }}>
+              ← Volver a iniciar sesion
             </button>
-          ))}
-        </div>
-        {mode==='register'&&(
-          <div style={{ marginBottom:16 }}>
-            <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Tu nombre</label>
-            <Input value={name} onChange={(e:any)=>setName(e.target.value)} placeholder="Ej: Ana Garcia" />
+          </div>
+        ) : (
+          <div>
+            <div style={{ display:'flex', marginBottom:24, background:T.s2, borderRadius:13, padding:4 }}>
+              {['login','register'].map(m=>(
+                <button key={m} onClick={()=>cambiarModo(m)} style={{ flex:1, padding:10, borderRadius:10, background:mode===m?T.s4:'transparent', border:'none', color:mode===m?T.text:T.muted, fontFamily:T.font, fontWeight:mode===m?700:500, fontSize:14, cursor:'pointer' }}>
+                  {m==='login'?'Iniciar sesion':'Registrarse'}
+                </button>
+              ))}
+            </div>
+            {mode==='register'&&(
+              <div style={{ marginBottom:16 }}>
+                <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Tu nombre</label>
+                <Input value={name} onChange={(e:any)=>setName(e.target.value)} placeholder="Ej: Ana Garcia" />
+              </div>
+            )}
+            <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Correo electronico</label>
+            <div style={{ marginBottom:16 }}><Input value={email} onChange={(e:any)=>setEmail(e.target.value)} placeholder="tu@email.com" type="email" /></div>
+            <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Contrasena</label>
+            <div style={{ position:'relative', marginBottom: mode==='login' ? 10 : 22 }}>
+              <Input value={pass} onChange={(e:any)=>setPass(e.target.value)} placeholder="Minimo 6 caracteres" type={showPass?'text':'password'} />
+              <button onClick={()=>setShowPass(s=>!s)} style={{ position:'absolute', right:14, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', color:T.muted, cursor:'pointer', fontSize:13 }}>
+                {showPass?'Ocultar':'Ver'}
+              </button>
+            </div>
+            {mode==='login' && (
+              <div style={{ textAlign:'right', marginBottom:18 }}>
+                <button onClick={()=>cambiarModo('recuperar')} style={{ background:'none', border:'none', color:T.gold, fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:T.font, padding:0 }}>
+                  Olvidaste tu contrasena?
+                </button>
+              </div>
+            )}
+            <GBtn full disabled={!email||!pass||loading} onClick={submit}>
+              {loading?'Conectando...':mode==='login'?'Entrar al changarro':'Crear cuenta'}
+            </GBtn>
           </div>
         )}
-        <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Correo electronico</label>
-        <div style={{ marginBottom:16 }}><Input value={email} onChange={(e:any)=>setEmail(e.target.value)} placeholder="tu@email.com" type="email" /></div>
-        <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Contrasena</label>
-        <div style={{ position:'relative', marginBottom:22 }}>
-          <Input value={pass} onChange={(e:any)=>setPass(e.target.value)} placeholder="Minimo 6 caracteres" type={showPass?'text':'password'} />
-          <button onClick={()=>setShowPass(s=>!s)} style={{ position:'absolute', right:14, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', color:T.muted, cursor:'pointer', fontSize:13 }}>
-            {showPass?'Ocultar':'Ver'}
-          </button>
-        </div>
-        <GBtn full disabled={!email||!pass||loading} onClick={submit}>
-          {loading?'Conectando...':mode==='login'?'Entrar al changarro':'Crear cuenta'}
-        </GBtn>
+
         {error&&<p style={{ marginTop:14, color:T.red, fontSize:13, textAlign:'center' }}>{error}</p>}
+        {mensajeExito&&<p style={{ marginTop:14, color:T.green, fontSize:13, textAlign:'center', lineHeight:1.5 }}>{mensajeExito}</p>}
+      </div>
+    </div>
+  )
+}
+
+function NuevaPasswordScreen({ onDone }: any) {
+  const [pass, setPass] = useState('')
+  const [pass2, setPass2] = useState('')
+  const [showPass, setShowPass] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [exito, setExito] = useState(false)
+
+  async function guardar() {
+    if (pass.length < 6) { setError('La contrasena debe tener al menos 6 caracteres'); return }
+    if (pass !== pass2) { setError('Las contrasenas no coinciden'); return }
+    setLoading(true)
+    setError('')
+    const { error: upError } = await supabase.auth.updateUser({ password: pass })
+    setLoading(false)
+    if (upError) { setError('Error: ' + upError.message); return }
+    setExito(true)
+  }
+
+  return (
+    <div style={{ minHeight:'100vh', background:T.bg, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'24px 20px', fontFamily:T.font }}>
+      <link href={FONTS} rel="stylesheet" />
+      <div style={{ textAlign:'center', marginBottom:32 }}>
+        <div style={{ width:68, height:68, borderRadius:22, background:G, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 18px', boxShadow:'0 0 36px '+T.glow, fontSize:22, color:'#0a0a0a', fontWeight:'bold' }}>TCL</div>
+        <div style={{ fontFamily:"'Libre Baskerville',serif", fontSize:24, background:G, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', fontWeight:700 }}>Tu Changarro Libre</div>
+      </div>
+
+      <div style={{ width:'100%', maxWidth:390, background:T.s1, borderRadius:24, padding:'28px 24px', border:'1px solid '+T.border2 }}>
+        {exito ? (
+          <div style={{ textAlign:'center' }}>
+            <div style={{ fontSize:18, fontWeight:800, marginBottom:8, color:T.green }}>Contrasena actualizada</div>
+            <div style={{ fontSize:13, color:T.muted, marginBottom:22, lineHeight:1.5 }}>
+              Ya podes entrar al changarro con tu nueva contrasena.
+            </div>
+            <GBtn full onClick={onDone}>Iniciar sesion</GBtn>
+          </div>
+        ) : (
+          <div>
+            <div style={{ fontSize:18, fontWeight:800, marginBottom:6, color:T.text }}>Elegi tu nueva contrasena</div>
+            <div style={{ fontSize:13, color:T.muted, marginBottom:22, lineHeight:1.5 }}>
+              Escribila dos veces para confirmar. Minimo 6 caracteres.
+            </div>
+
+            <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Nueva contrasena</label>
+            <div style={{ position:'relative', marginBottom:16 }}>
+              <Input value={pass} onChange={(e:any)=>setPass(e.target.value)} placeholder="Nueva contrasena" type={showPass?'text':'password'} />
+              <button onClick={()=>setShowPass(s=>!s)} style={{ position:'absolute', right:14, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', color:T.muted, cursor:'pointer', fontSize:13 }}>
+                {showPass?'Ocultar':'Ver'}
+              </button>
+            </div>
+
+            <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Repetir contrasena</label>
+            <div style={{ marginBottom:22 }}>
+              <Input value={pass2} onChange={(e:any)=>setPass2(e.target.value)} placeholder="Repeti la contrasena" type={showPass?'text':'password'} />
+            </div>
+
+            <GBtn full disabled={!pass||!pass2||loading} onClick={guardar}>
+              {loading?'Guardando...':'Guardar nueva contrasena'}
+            </GBtn>
+            {error&&<p style={{ marginTop:14, color:T.red, fontSize:13, textAlign:'center' }}>{error}</p>}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -268,6 +385,7 @@ function AuthScreen({ onAuth }: any) {
 export default function App() {
   const [authed, setAuthed] = useState(false)
   const [checandoSesion, setCheandoSesion] = useState(true)
+  const [recoveryMode, setRecoveryMode] = useState(false)
   const [userId, setUserId] = useState<any>(null)
   const [userName, setUserName] = useState('')
   const [productos, setProductos] = useState<any[]>([])
@@ -338,6 +456,13 @@ export default function App() {
     })
   }, [])
 
+  useEffect(() => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event: any) => {
+      if (event === 'PASSWORD_RECOVERY') setRecoveryMode(true)
+    })
+    return () => { listener.subscription.unsubscribe() }
+  }, [])
+
   async function cargarProductos() {
     setCargando(true)
     const res = await supabase.from('publicaciones').select('*').order('fecha_publicacion', { ascending: false })
@@ -361,7 +486,6 @@ export default function App() {
     }
   }
 
-  // ---- DETALLE DE PRODUCTO ----
   async function abrirDetalle(p: any, origen: string = 'home') {
     if (p.vendedor_id !== userId) {
       supabase.from('publicaciones').update({ vistas: (p.vistas || 0) + 1 }).eq('id', p.id).then(()=>{})
@@ -593,11 +717,14 @@ export default function App() {
     )
   }
 
+  if (recoveryMode) {
+    return (
+      <NuevaPasswordScreen onDone={async ()=>{ setRecoveryMode(false); await cerrarSesion() }} />
+    )
+  }
+
   if (!authed) return <AuthScreen onAuth={handleAuth} />
 
-  // ============================================
-  // VISTA: DETALLE DE PRODUCTO (nueva)
-  // ============================================
   if (vista === 'detalle' && detalleProducto) {
     const p = detalleProducto
     const medios: any[] = []
@@ -615,7 +742,6 @@ export default function App() {
           <div style={{ fontWeight:700, fontSize:16, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.titulo}</div>
         </div>
 
-        {/* Galeria */}
         <div style={{ position:'relative', background:T.s2 }}>
           {medios.length === 0 ? (
             <div style={{ height:280, background:'linear-gradient(135deg,'+T.s3+','+T.s4+')', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, color:T.gold, fontWeight:'bold' }}>
@@ -696,7 +822,6 @@ export default function App() {
           )}
         </div>
 
-        {/* Barra de acciones fija */}
         <div style={{
           position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)',
           width:'100%', maxWidth:430, background:T.s1, borderTop:'1px solid '+T.border,
@@ -1094,7 +1219,8 @@ export default function App() {
                 <div style={{ fontSize:14, fontWeight:700, color:T.gold }}>Mensajes →</div>
               </button>
               <div style={{ flex:1, background:T.s2, border:'1px solid '+T.border2, borderRadius:16, padding:'14px' }}>
-                <div style={{ fontSize:11, color:T.muted, marginBottom:2 }}>Ubicacion</div>
+                <div
+                style={{ fontSize:11, color:T.muted, marginBottom:2 }}>Ubicacion</div>
                 <div style={{ fontSize:14, fontWeight:700 }}>{ubicacion || 'No especificada'}</div>
               </div>
             </div>
@@ -1194,29 +1320,29 @@ export default function App() {
                 }
                 {p.fotos_extra_urls && p.fotos_extra_urls.length > 0 && (
                   <div style={{ position:'absolute', top:8, right:8, background:'rgba(0,0,0,0.65)', color:'#fff', fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:20 }}>
-                  +{p.fotos_extra_urls.length}
-                </div>
-              )}
-              <button onClick={(e:any)=>{ e.stopPropagation(); toggleFavorito(p.id) }} style={{
-                position:'absolute', bottom:8, right:8, padding:'6px 10px', borderRadius:10,
-                border:'1px solid '+(favoritos.includes(p.id)?T.gold:'transparent'),
-                background:favoritos.includes(p.id)?T.gold+'cc':'rgba(0,0,0,0.5)',
-                color:favoritos.includes(p.id)?'#0a0a0a':'#fff', fontWeight:700, fontSize:10, cursor:'pointer'
-              }}>
-                {favoritos.includes(p.id)?'FAV':'fav'}
-              </button>
+                    +{p.fotos_extra_urls.length}
+                  </div>
+                )}
+                <button onClick={(e:any)=>{ e.stopPropagation(); toggleFavorito(p.id) }} style={{
+                  position:'absolute', bottom:8, right:8, padding:'6px 10px', borderRadius:10,
+                  border:'1px solid '+(favoritos.includes(p.id)?T.gold:'transparent'),
+                  background:favoritos.includes(p.id)?T.gold+'cc':'rgba(0,0,0,0.5)',
+                  color:favoritos.includes(p.id)?'#0a0a0a':'#fff', fontWeight:700, fontSize:10, cursor:'pointer'
+                }}>
+                  {favoritos.includes(p.id)?'FAV':'fav'}
+                </button>
+              </div>
+              <div style={{ padding:'10px 12px', flex:1, display:'flex', flexDirection:'column' }}>
+                <div style={{ fontWeight:700, fontSize:13, marginBottom:4, letterSpacing:'-0.01em', lineHeight:1.3 }}>{p.titulo}</div>
+                <div style={{ color:T.gold, fontWeight:800, fontSize:16, marginBottom:4 }}>${Number(p.precio).toLocaleString()}</div>
+                <div style={{ fontSize:10, color:T.muted }}>{tiempoTranscurrido(p.fecha_publicacion)}</div>
+              </div>
             </div>
-            <div style={{ padding:'10px 12px', flex:1, display:'flex', flexDirection:'column' }}>
-              <div style={{ fontWeight:700, fontSize:13, marginBottom:4, letterSpacing:'-0.01em', lineHeight:1.3 }}>{p.titulo}</div>
-              <div style={{ color:T.gold, fontWeight:800, fontSize:16, marginBottom:4 }}>${Number(p.precio).toLocaleString()}</div>
-              <div style={{ fontSize:10, color:T.muted }}>{tiempoTranscurrido(p.fecha_publicacion)}</div>
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
-    </div>
 
-    <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} abrirBandejaMensajes={abrirBandejaMensajes} />
-  </div>
-)
+      <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} abrirBandejaMensajes={abrirBandejaMensajes} />
+    </div>
+  )
 }
