@@ -395,6 +395,7 @@ export default function App() {
   const [busqueda, setBusqueda] = useState('')
   const [chatProducto, setChatProducto] = useState<any>(null)
   const [chatOtroUsuario, setChatOtroUsuario] = useState<any>(null)
+  const [chatOtroNombre, setChatOtroNombre] = useState('')
   const [chatOrigen, setChatOrigen] = useState('home')
   const [chatMensajes, setChatMensajes] = useState<any[]>([])
   const [chatTexto, setChatTexto] = useState('')
@@ -499,12 +500,21 @@ export default function App() {
     if (!resVend.error) setDetalleVendedor(resVend.data)
   }
 
-  async function abrirChat(p: any, otroUsuarioId: any, origen: string = 'home') {
+  async function abrirChat(p: any, otroUsuarioId: any, origen: string = 'home', nombreOtro: string = '') {
     setChatProducto(p)
     setChatOtroUsuario(otroUsuarioId)
+    setChatOtroNombre(nombreOtro || '')
     setChatOrigen(origen)
+    setChatMensajes([])
     setVista('chat')
-    const res = await supabase.from('mensajes').select('*').eq('publicacion_id', p.id).order('fecha', { ascending: true })
+    const filtro =
+      'and(emisor_id.eq.' + userId + ',receptor_id.eq.' + otroUsuarioId + '),' +
+      'and(emisor_id.eq.' + otroUsuarioId + ',receptor_id.eq.' + userId + ')'
+    const res = await supabase.from('mensajes')
+      .select('*')
+      .eq('publicacion_id', p.id)
+      .or(filtro)
+      .order('fecha', { ascending: true })
     if (!res.error) setChatMensajes(res.data)
   }
 
@@ -627,10 +637,18 @@ export default function App() {
 
     const pubIds = [...new Set(conversaciones.map((c:any) => c.publicacion_id))]
     if (pubIds.length > 0) {
-      const resPub = await supabase.from('publicaciones').select('id,titulo,foto_url,precio').in('id', pubIds)
+      const resPub = await supabase.from('publicaciones').select('id,titulo,foto_url,precio,vendedor_id').in('id', pubIds)
       const pubMap: any = {}
       if (!resPub.error) resPub.data.forEach((p:any) => pubMap[p.id] = p)
       conversaciones.forEach((c:any) => c.producto = pubMap[c.publicacion_id])
+    }
+
+    const otroIds = [...new Set(conversaciones.map((c:any) => c.otro))]
+    if (otroIds.length > 0) {
+      const resUsers = await supabase.from('usuarios').select('id,nombre,avatar_url').in('id', otroIds)
+      const userMap: any = {}
+      if (!resUsers.error) resUsers.data.forEach((u:any) => userMap[u.id] = u)
+      conversaciones.forEach((c:any) => c.interlocutor = userMap[c.otro])
     }
 
     setMisMensajes(conversaciones)
@@ -638,7 +656,8 @@ export default function App() {
   }
 
   function abrirConversacion(c: any) {
-    abrirChat(c.producto, c.otro, 'mensajes')
+    if (!c.producto) return
+    abrirChat(c.producto, c.otro, 'mensajes', c.interlocutor?.nombre || '')
   }
 
   function abrirEditarPerfil() {
@@ -827,7 +846,7 @@ export default function App() {
           width:'100%', maxWidth:430, background:T.s1, borderTop:'1px solid '+T.border,
           padding:'12px 18px', display:'flex', gap:10, zIndex:70
         }}>
-          <GBtn full onClick={()=>abrirChat(p, p.vendedor_id, 'detalle')}>Contactar vendedor</GBtn>
+          <GBtn full onClick={()=>abrirChat(p, p.vendedor_id, 'detalle', detalleVendedor?.nombre || '')}>Contactar vendedor</GBtn>
           <button onClick={()=>toggleFavorito(p.id)} style={{
             padding:'0 16px', borderRadius:14, border:'1px solid '+(esFav?T.gold:T.border2),
             background:esFav?T.gold+'22':'transparent', color:esFav?T.gold:T.muted, fontWeight:700, fontSize:13, cursor:'pointer'
@@ -843,11 +862,15 @@ export default function App() {
     return (
       <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', display:'flex', flexDirection:'column' }}>
         <link href={FONTS} rel="stylesheet" />
-        <div style={{ background:T.s1, padding:'16px 18px', borderBottom:'1px solid '+T.border, display:'flex', alignItems:'center', gap:12, position:'sticky', top:0, zIndex:60 }}>
+        <div style={{ background:T.s1, padding:'14px 18px', borderBottom:'1px solid '+T.border, display:'flex', alignItems:'center', gap:12, position:'sticky', top:0, zIndex:60 }}>
           <BackBtn onClick={()=>setVista(chatOrigen)} />
-          <div style={{ flex:1 }}>
-            <div style={{ fontWeight:700, fontSize:15 }}>{chatProducto.titulo}</div>
-            <div style={{ fontSize:11, color:T.muted }}>Chat del producto</div>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontWeight:700, fontSize:15, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+              {chatOtroNombre || chatProducto.titulo}
+            </div>
+            <div style={{ fontSize:11, color:T.muted, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+              {chatOtroNombre ? chatProducto.titulo : 'Chat del producto'}
+            </div>
           </div>
           <div style={{ color:T.gold, fontWeight:800, fontSize:16 }}>${Number(chatProducto.precio).toLocaleString()}</div>
         </div>
@@ -886,7 +909,7 @@ export default function App() {
           <div style={{ fontWeight:700, fontSize:17, flex:1 }}>Mensajes</div>
         </div>
 
-        <div style={{ padding:'18px' }}>
+        <div style={{ padding:'8px 0' }}>
           {cargandoMensajes && <p style={{ color:T.muted, textAlign:'center', padding:40 }}>Cargando conversaciones...</p>}
 
           {!cargandoMensajes && misMensajes.length===0 && (
@@ -896,22 +919,46 @@ export default function App() {
             </div>
           )}
 
-          {misMensajes.map((c:any)=>(
-            <button key={c.publicacion_id+'-'+c.otro} onClick={()=>abrirConversacion(c)} style={{
-              width:'100%', textAlign:'left', display:'flex', gap:12, alignItems:'center',
-              background:T.s2, border:'1px solid '+T.border2, borderRadius:16, padding:'12px', marginBottom:10, cursor:'pointer'
-            }}>
-              {c.producto?.foto_url
-                ? <img src={c.producto.foto_url} style={{ width:52, height:52, borderRadius:12, objectFit:'cover', flexShrink:0 }} />
-                : <div style={{ width:52, height:52, borderRadius:12, background:T.s3, flexShrink:0 }} />
-              }
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontWeight:700, fontSize:13, marginBottom:2 }}>{c.producto?.titulo || 'Producto'}</div>
-                <div style={{ fontSize:12, color:T.muted, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.contenido}</div>
-              </div>
-              <div style={{ fontSize:10, color:T.muted, flexShrink:0 }}>{tiempoTranscurrido(c.fecha)}</div>
-            </button>
-          ))}
+          {misMensajes.map((c:any)=>{
+            const nombre = c.interlocutor?.nombre || 'Usuario'
+            const avatar = c.interlocutor?.avatar_url
+            const yoEscribi = c.emisor_id === userId
+            return (
+              <button key={c.publicacion_id+'-'+c.otro} onClick={()=>abrirConversacion(c)} style={{
+                width:'100%', textAlign:'left', display:'flex', gap:14, alignItems:'center',
+                background:'transparent', border:'none', borderBottom:'1px solid '+T.border,
+                padding:'14px 18px', cursor:'pointer', fontFamily:T.font, color:T.text
+              }}>
+                <div style={{ position:'relative', width:54, height:54, flexShrink:0 }}>
+                  {avatar
+                    ? <img src={avatar} style={{ width:54, height:54, borderRadius:'50%', objectFit:'cover' }} />
+                    : <div style={{ width:54, height:54, borderRadius:'50%', background:G, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:800, color:'#0a0a0a' }}>
+                        {nombre.charAt(0).toUpperCase()}
+                      </div>
+                  }
+                  {c.producto?.foto_url && (
+                    <img src={c.producto.foto_url} style={{
+                      position:'absolute', right:-4, bottom:-4, width:24, height:24, borderRadius:8,
+                      objectFit:'cover', border:'2px solid '+T.bg
+                    }} />
+                  )}
+                </div>
+
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:8, marginBottom:2 }}>
+                    <div style={{ fontWeight:700, fontSize:15, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{nombre}</div>
+                    <div style={{ fontSize:10, color:T.muted, flexShrink:0 }}>{tiempoTranscurrido(c.fecha)}</div>
+                  </div>
+                  <div style={{ fontSize:11, color:T.gold, fontWeight:600, marginBottom:3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                    {c.producto?.titulo || 'Publicacion eliminada'}
+                  </div>
+                  <div style={{ fontSize:13, color:T.muted, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                    {yoEscribi ? 'Vos: ' : ''}{c.contenido}
+                  </div>
+                </div>
+              </button>
+            )
+          })}
         </div>
         <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} abrirBandejaMensajes={abrirBandejaMensajes} />
       </div>
@@ -1219,8 +1266,7 @@ export default function App() {
                 <div style={{ fontSize:14, fontWeight:700, color:T.gold }}>Mensajes →</div>
               </button>
               <div style={{ flex:1, background:T.s2, border:'1px solid '+T.border2, borderRadius:16, padding:'14px' }}>
-                <div
-                style={{ fontSize:11, color:T.muted, marginBottom:2 }}>Ubicacion</div>
+                <div style={{ fontSize:11, color:T.muted, marginBottom:2 }}>Ubicacion</div>
                 <div style={{ fontSize:14, fontWeight:700 }}>{ubicacion || 'No especificada'}</div>
               </div>
             </div>
