@@ -2,11 +2,14 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from './supabaseClient'
 
 // CAMBIAR: poner aca tu correo de soporte real
-const EMAIL_SOPORTE = 'TU_CORREO@gmail.com'
+const EMAIL_SOPORTE = 'tuchangarrolibre@gmail.com'
 
 // Adonde vuelve el link del mail de recuperacion de contrasena.
 // Cuando empaquetemos para las tiendas, cambiamos esta linea por la URL de Vercel.
 const REDIRECT_URL = window.location.origin
+
+// Detecta si la persona llego desde el link de recuperacion (antes de que Supabase limpie la direccion)
+const LLEGO_DE_RECUPERACION = window.location.hash.indexOf('type=recovery') !== -1
 
 const DARK = {
   bg:'#070707', s1:'#0F0F0F', s2:'#161616', s3:'#1F1F1F', s4:'#292929',
@@ -590,7 +593,7 @@ function NuevaPasswordScreen({ onDone }: any) {
 export default function App() {
   const [authed, setAuthed] = useState(false)
   const [checandoSesion, setCheandoSesion] = useState(true)
-  const [recoveryMode, setRecoveryMode] = useState(false)
+  const [recoveryMode, setRecoveryMode] = useState(LLEGO_DE_RECUPERACION)
   const [legalAuth, setLegalAuth] = useState<any>(null)
   const [userId, setUserId] = useState<any>(null)
   const [userName, setUserName] = useState('')
@@ -898,10 +901,7 @@ export default function App() {
     setTitulo(''); setPrecio(''); setDescripcion(''); setFotoFiles([]); setFotoPreviews([]); setVideoFile(null); setVideoPreview(null)
     setVista('home')
     cargarProductos()
-  }
-
-  // ===== FIN PARTE 1 =====
-  async function abrirPerfil() {
+  }async function abrirPerfil() {
     setVista('perfil')
     setCargandoPerfil(true)
     const [resUsuario, resPublicaciones] = await Promise.all([
@@ -1809,3 +1809,4 @@ export default function App() {
     </div>
   )
 }
+
