@@ -371,6 +371,190 @@ function BottomNav({ vista, setVista, abrirPerfil, abrirBandejaMensajes }: any) 
   )
 }
 
+function IconoCorazon({ activo, size = 22 }: any) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={activo ? T.gold : 'none'} stroke={activo ? T.gold : '#fff'} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+    </svg>
+  )
+}
+
+function IconoAtras({ size = 22 }: any) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 18l-6-6 6-6" />
+    </svg>
+  )
+}
+
+function DetalleProducto({ p, vendedor, esFav, esMio, onBack, onFav, onContactar, onReportar, onBloquear, modales }: any) {
+  const [idx, setIdx] = useState(0)
+  const [menu, setMenu] = useState(false)
+  const [verMas, setVerMas] = useState(false)
+  const toqueX = useRef<any>(null)
+
+  const medios: any[] = []
+  if (p.foto_url) medios.push({ tipo:'img', url:p.foto_url })
+  if (p.fotos_extra_urls) p.fotos_extra_urls.forEach((u:any)=> medios.push({ tipo:'img', url:u }))
+  if (p.video_url) medios.push({ tipo:'video', url:p.video_url })
+
+  function irA(n: number) {
+    if (n < 0 || n > medios.length - 1) return
+    setIdx(n)
+  }
+
+  function inicioToque(e: any) {
+    toqueX.current = e.touches[0].clientX
+  }
+
+  function finToque(e: any) {
+    if (toqueX.current === null) return
+    const dx = e.changedTouches[0].clientX - toqueX.current
+    toqueX.current = null
+    if (dx < -40) irA(idx + 1)
+    else if (dx > 40) irA(idx - 1)
+  }
+
+  const desc = p.descripcion || ''
+  const larga = desc.length > 160
+  const ubicacion = vendedor ? [vendedor.ciudad, vendedor.provincia].filter(Boolean).join(', ') : ''
+  const nivel = (vendedor && vendedor.nivel_reputacion) ? vendedor.nivel_reputacion : 'Nuevo'
+  const colorNivel = (NIVELES[nivel] || NIVELES['Nuevo']).color
+
+  const botonCirculo: any = {
+    width:40, height:40, borderRadius:'50%', background:'rgba(0,0,0,0.45)', border:'none',
+    display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', padding:0
+  }
+
+  return (
+    <div style={{ minHeight:'100vh', width:'100%', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', paddingBottom:96, textAlign:'left', boxSizing:'border-box' }}>
+      <link href={FONTS} rel="stylesheet" />
+
+      <div onTouchStart={inicioToque} onTouchEnd={finToque} style={{ position:'relative', width:'100%', aspectRatio:'1 / 1', background:T.s2, overflow:'hidden' }}>
+        {medios.length === 0 ? (
+          <div style={{ width:'100%', height:'100%', background:'linear-gradient(135deg,'+T.s3+','+T.s4+')', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, color:T.gold, fontWeight:700, letterSpacing:'0.1em' }}>
+            {(p.categoria || '').toUpperCase()}
+          </div>
+        ) : medios[idx].tipo === 'video' ? (
+          <video src={medios[idx].url} controls playsInline style={{ width:'100%', height:'100%', objectFit:'cover', display:'block', background:'#000' }} />
+        ) : (
+          <img src={medios[idx].url} style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
+        )}
+
+        <div style={{ position:'absolute', top:12, left:12, right:12, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <button onClick={onBack} style={botonCirculo}>
+            <IconoAtras />
+          </button>
+          {!esMio && (
+            <div style={{ display:'flex', gap:10 }}>
+              <button onClick={onFav} style={botonCirculo}>
+                <IconoCorazon activo={esFav} />
+              </button>
+              <button onClick={()=>setMenu(!menu)} style={{ ...botonCirculo, color:'#fff', fontSize:20, fontWeight:'bold', lineHeight:1 }}>
+                ⋯
+              </button>
+            </div>
+          )}
+        </div>
+
+        {menu && (
+          <div>
+            <div onClick={()=>setMenu(false)} style={{ position:'fixed', inset:0, zIndex:4 }} />
+            <div style={{ position:'absolute', top:60, right:12, background:T.s2, border:'1px solid '+T.border2, borderRadius:14, overflow:'hidden', zIndex:5, minWidth:200 }}>
+              <button onClick={()=>{ setMenu(false); onReportar() }} style={{ width:'100%', textAlign:'left', padding:'13px 16px', background:'none', border:'none', borderBottom:'1px solid '+T.border, color:T.text, fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:T.font }}>
+                Reportar publicacion
+              </button>
+              <button onClick={()=>{ setMenu(false); onBloquear() }} style={{ width:'100%', textAlign:'left', padding:'13px 16px', background:'none', border:'none', color:T.red, fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:T.font }}>
+                Bloquear vendedor
+              </button>
+            </div>
+          </div>
+        )}
+
+        {medios.length > 1 && (
+          <div>
+            <div style={{ position:'absolute', bottom:12, right:12, background:'rgba(0,0,0,0.55)', color:'#fff', fontSize:11, fontWeight:700, padding:'4px 10px', borderRadius:20 }}>
+              {(idx + 1) + '/' + medios.length}
+            </div>
+            <div style={{ position:'absolute', bottom:16, left:0, right:0, display:'flex', justifyContent:'center', gap:6 }}>
+              {medios.map((_:any, i:number)=>(
+                <div key={i} onClick={()=>irA(i)} style={{
+                  width: i===idx ? 18 : 6, height:6, borderRadius:6, cursor:'pointer',
+                  background: i===idx ? T.gold : 'rgba(255,255,255,0.55)', transition:'width 0.2s ease'
+                }} />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ padding:'22px 20px 0' }}>
+        <div style={{ fontSize:30, fontWeight:800, color:T.gold, letterSpacing:'-0.02em', lineHeight:1.1 }}>
+          ${Number(p.precio).toLocaleString('es-AR')}
+        </div>
+        <div style={{ fontSize:19, fontWeight:600, marginTop:8, lineHeight:1.3 }}>{p.titulo}</div>
+        <div style={{ fontSize:12, color:T.muted, marginTop:8 }}>
+          {p.categoria} · {tiempoTranscurrido(p.fecha_publicacion)} · {p.vistas || 0} vistas
+        </div>
+
+        {desc && (
+          <div style={{ marginTop:24 }}>
+            <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', fontWeight:600, textTransform:'uppercase', marginBottom:8 }}>Descripcion</div>
+            <div style={{
+              fontSize:14, color:T.sub, lineHeight:1.65, whiteSpace:'pre-wrap',
+              ...((larga && !verMas) ? { display:'-webkit-box', WebkitLineClamp:4, WebkitBoxOrient:'vertical', overflow:'hidden' } : {})
+            } as any}>
+              {desc}
+            </div>
+            {larga && (
+              <button onClick={()=>setVerMas(!verMas)} style={{ background:'none', border:'none', color:T.gold, fontSize:13, fontWeight:700, cursor:'pointer', padding:'8px 0 0', fontFamily:T.font }}>
+                {verMas ? 'Ver menos' : 'Ver mas'}
+              </button>
+            )}
+          </div>
+        )}
+
+        <div style={{ height:1, background:T.border, margin:'24px 0' }} />
+
+        {vendedor ? (
+          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+            {vendedor.avatar_url
+              ? <img src={vendedor.avatar_url} style={{ width:44, height:44, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} />
+              : <div style={{ width:44, height:44, borderRadius:'50%', background:G, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, fontWeight:800, color:'#0a0a0a', flexShrink:0 }}>
+                  {(vendedor.nombre || '?').charAt(0).toUpperCase()}
+                </div>
+            }
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontWeight:700, fontSize:14, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{vendedor.nombre}</div>
+              <div style={{ fontSize:12, color:T.muted, marginTop:2 }}>{ubicacion || 'Ubicacion no especificada'}</div>
+            </div>
+            <div style={{ fontSize:11, fontWeight:700, color:colorNivel, border:'1px solid '+colorNivel, borderRadius:20, padding:'3px 10px', flexShrink:0 }}>
+              {nivel}
+            </div>
+          </div>
+        ) : (
+          <div style={{ fontSize:12, color:T.muted }}>Cargando vendedor...</div>
+        )}
+      </div>
+
+      <div style={{
+        position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)',
+        width:'100%', maxWidth:430, background:T.s1, borderTop:'1px solid '+T.border,
+        padding:'12px 18px calc(12px + env(safe-area-inset-bottom))', zIndex:70, boxSizing:'border-box'
+      }}>
+        {esMio ? (
+          <div style={{ textAlign:'center', padding:'13px', borderRadius:14, background:T.s2, border:'1px solid '+T.border2, color:T.muted, fontSize:14, fontWeight:700 }}>
+            Esta es tu publicacion
+          </div>
+        ) : (
+          <GBtn full onClick={onContactar}>Contactar vendedor</GBtn>
+        )}
+      </div>
+      {modales}
+    </div>
+  )
+}
+
 function AuthScreen({ onAuth, onLegal }: any) {
   const [mode, setMode] = useState('login')
   const [email, setEmail] = useState('')
@@ -744,9 +928,7 @@ export default function App() {
       setBloqueados(bloqueados.filter((id:any) => id !== otroId))
       setBloqueadosInfo(bloqueadosInfo.filter((u:any) => u.id !== otroId))
     }
-  }
-
-  function abrirReporte(obj: any) {
+  }function abrirReporte(obj: any) {
     setReporteObjetivo(obj)
     setReporteMotivo('')
     setReporteDetalle('')
@@ -901,7 +1083,9 @@ export default function App() {
     setTitulo(''); setPrecio(''); setDescripcion(''); setFotoFiles([]); setFotoPreviews([]); setVideoFile(null); setVideoPreview(null)
     setVista('home')
     cargarProductos()
-  }async function abrirPerfil() {
+  }
+
+  async function abrirPerfil() {
     setVista('perfil')
     setCargandoPerfil(true)
     const [resUsuario, resPublicaciones] = await Promise.all([
@@ -1126,142 +1310,20 @@ export default function App() {
 
   if (vista === 'detalle' && detalleProducto) {
     const p = detalleProducto
-    const medios: any[] = []
-    if (p.foto_url) medios.push({ tipo:'img', url:p.foto_url })
-    if (p.fotos_extra_urls) p.fotos_extra_urls.forEach((u:any)=> medios.push({ tipo:'img', url:u }))
-    if (p.video_url) medios.push({ tipo:'video', url:p.video_url })
-
-    const esFav = favoritos.includes(p.id)
-    const esMio = p.vendedor_id === userId
-
     return (
-      <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', paddingBottom:90 }}>
-        <link href={FONTS} rel="stylesheet" />
-        <div style={{ background:T.s1, padding:'16px 18px', borderBottom:'1px solid '+T.border, display:'flex', alignItems:'center', gap:12, position:'sticky', top:0, zIndex:60 }}>
-          <BackBtn onClick={()=>setVista(detalleOrigen)} />
-          <div style={{ fontWeight:700, fontSize:16, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.titulo}</div>
-        </div>
-
-        <div style={{ position:'relative', background:T.s2 }}>
-          {medios.length === 0 ? (
-            <div style={{ height:280, background:'linear-gradient(135deg,'+T.s3+','+T.s4+')', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, color:T.gold, fontWeight:'bold' }}>
-              {p.categoria?.toUpperCase()}
-            </div>
-          ) : medios[detalleIndex].tipo === 'video' ? (
-            <video src={medios[detalleIndex].url} controls style={{ width:'100%', height:280, objectFit:'cover', display:'block', background:'#000' }} />
-          ) : (
-            <img src={medios[detalleIndex].url} style={{ width:'100%', height:280, objectFit:'cover', display:'block' }} />
-          )}
-
-          {medios.length > 1 && (
-            <>
-              {detalleIndex > 0 && (
-                <button onClick={()=>setDetalleIndex(i=>i-1)} style={{
-                  position:'absolute', left:10, top:'50%', transform:'translateY(-50%)',
-                  background:'rgba(0,0,0,0.5)', color:'#fff', border:'none', borderRadius:'50%',
-                  width:34, height:34, fontSize:18, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center'
-                }}>←</button>
-              )}
-              {detalleIndex < medios.length - 1 && (
-                <button onClick={()=>setDetalleIndex(i=>i+1)} style={{
-                  position:'absolute', right:10, top:'50%', transform:'translateY(-50%)',
-                  background:'rgba(0,0,0,0.5)', color:'#fff', border:'none', borderRadius:'50%',
-                  width:34, height:34, fontSize:18, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center'
-                }}>→</button>
-              )}
-              <div style={{ position:'absolute', bottom:10, left:0, right:0, display:'flex', justifyContent:'center', gap:6 }}>
-                {medios.map((_:any,i:number)=>(
-                  <div key={i} onClick={()=>setDetalleIndex(i)} style={{
-                    width:7, height:7, borderRadius:'50%', cursor:'pointer',
-                    background: i===detalleIndex ? T.gold : 'rgba(255,255,255,0.5)'
-                  }} />
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-
-        <div style={{ padding:'18px' }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10 }}>
-            <div style={{ flex:1 }}>
-              <div style={{ fontSize:18, fontWeight:800, marginBottom:4 }}>{p.titulo}</div>
-              <div style={{ fontSize:12, color:T.muted, background:T.s3, display:'inline-block', padding:'2px 10px', borderRadius:20 }}>{p.categoria}</div>
-            </div>
-            <div style={{ color:T.gold, fontWeight:800, fontSize:22, marginLeft:12 }}>${Number(p.precio).toLocaleString()}</div>
-          </div>
-
-          <div style={{ fontSize:11, color:T.muted, marginBottom:16 }}>
-            {p.vistas || 0} vistas · {tiempoTranscurrido(p.fecha_publicacion)}
-          </div>
-
-          {p.descripcion && (
-            <div style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, padding:'16px', marginBottom:16 }}>
-              <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', fontWeight:600, marginBottom:10, textTransform:'uppercase' }}>Descripcion</div>
-              <div style={{ fontSize:14, color:T.sub, lineHeight:1.6 }}>{p.descripcion}</div>
-            </div>
-          )}
-
-          {detalleVendedor && (
-            <div style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, padding:'14px 16px', marginBottom:16, display:'flex', alignItems:'center', gap:12 }}>
-              {detalleVendedor.avatar_url
-                ? <img src={detalleVendedor.avatar_url} style={{ width:44, height:44, borderRadius:'50%', objectFit:'cover' }} />
-                : <div style={{ width:44, height:44, borderRadius:'50%', background:G, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, fontWeight:800, color:'#0a0a0a' }}>
-                    {(detalleVendedor.nombre || '?').charAt(0).toUpperCase()}
-                  </div>
-              }
-              <div style={{ flex:1 }}>
-                <div style={{ fontWeight:700, fontSize:14 }}>{detalleVendedor.nombre}</div>
-                <div style={{ fontSize:11, color:T.muted }}>
-                  {[detalleVendedor.ciudad, detalleVendedor.provincia].filter(Boolean).join(', ') || 'Ubicacion no especificada'}
-                </div>
-              </div>
-              <div style={{ fontSize:11, fontWeight:700, color:(NIVELES[detalleVendedor.nivel_reputacion]||NIVELES['Nuevo']).color }}>
-                {detalleVendedor.nivel_reputacion || 'Nuevo'}
-              </div>
-            </div>
-          )}
-
-          {!esMio && (
-            <div style={{ display:'flex', gap:10, marginBottom:8 }}>
-              <button onClick={()=>abrirReporte({ publicacionId:p.id, usuarioId:p.vendedor_id, nombre:p.titulo })} style={{
-                flex:1, padding:'10px', borderRadius:12, border:'1px solid '+T.border2, background:'transparent',
-                color:T.sub, fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:T.font
-              }}>
-                Reportar publicacion
-              </button>
-              <button onClick={()=>setBloqueoObjetivo({ usuarioId:p.vendedor_id, nombre: detalleVendedor?.nombre || 'este vendedor' })} style={{
-                flex:1, padding:'10px', borderRadius:12, border:'1px solid '+T.red, background:'transparent',
-                color:T.red, fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:T.font
-              }}>
-                Bloquear vendedor
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div style={{
-          position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)',
-          width:'100%', maxWidth:430, background:T.s1, borderTop:'1px solid '+T.border,
-          padding:'12px 18px', display:'flex', gap:10, zIndex:70
-        }}>
-          {esMio ? (
-            <div style={{ flex:1, textAlign:'center', padding:'13px', borderRadius:14, background:T.s2, border:'1px solid '+T.border2, color:T.muted, fontSize:14, fontWeight:700 }}>
-              Esta es tu publicacion
-            </div>
-          ) : (
-            <>
-              <GBtn full onClick={()=>abrirChat(p, p.vendedor_id, 'detalle', detalleVendedor?.nombre || '')}>Contactar vendedor</GBtn>
-              <button onClick={()=>toggleFavorito(p.id)} style={{
-                padding:'0 16px', borderRadius:14, border:'1px solid '+(esFav?T.gold:T.border2),
-                background:esFav?T.gold+'22':'transparent', color:esFav?T.gold:T.muted, fontWeight:700, fontSize:13, cursor:'pointer'
-              }}>
-                {esFav?'FAV':'fav'}
-              </button>
-            </>
-          )}
-        </div>
-        {modales}
-      </div>
+      <DetalleProducto
+        key={p.id}
+        p={p}
+        vendedor={detalleVendedor}
+        esFav={favoritos.includes(p.id)}
+        esMio={p.vendedor_id === userId}
+        onBack={()=>setVista(detalleOrigen)}
+        onFav={()=>toggleFavorito(p.id)}
+        onContactar={()=>abrirChat(p, p.vendedor_id, 'detalle', detalleVendedor?.nombre || '')}
+        onReportar={()=>abrirReporte({ publicacionId:p.id, usuarioId:p.vendedor_id, nombre:p.titulo })}
+        onBloquear={()=>setBloqueoObjetivo({ usuarioId:p.vendedor_id, nombre: detalleVendedor?.nombre || 'este vendedor' })}
+        modales={modales}
+      />
     )
   }
 
