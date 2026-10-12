@@ -11,6 +11,11 @@ const REDIRECT_URL = window.location.origin
 // Detecta si la persona llego desde el link de recuperacion (antes de que Supabase limpie la direccion)
 const LLEGO_DE_RECUPERACION = window.location.hash.indexOf('type=recovery') !== -1
 
+// Portadas del perfil. Cuando tengas las imagenes de la app, pega sus direcciones aca adentro,
+// entre comillas y separadas por coma. Se elige una al azar. Vacio = portada simple con el nombre.
+const PORTADAS: string[] = []
+const PORTADA_ELEGIDA = PORTADAS.length > 0 ? PORTADAS[Math.floor(Math.random() * PORTADAS.length)] : ''
+
 const DARK = {
   bg:'#070707', s1:'#0F0F0F', s2:'#161616', s3:'#1F1F1F', s4:'#292929',
   border:'#232323', border2:'#303030',
@@ -291,45 +296,6 @@ function ModalBloqueo({ objetivo, bloqueando, onConfirmar, onCancelar }: any) {
             {bloqueando ? 'Bloqueando...' : 'Bloquear'}
           </button>
         </div>
-      </div>
-    </div>
-  )
-}
-
-function ReputationRing({ nivel, puntaje, avatarUrl, iniciales, size = 120 }: any) {
-  const info = NIVELES[nivel] || NIVELES['Nuevo']
-  const radius = (size - 16) / 2
-  const circumference = 2 * Math.PI * radius
-  const pctVisual = Math.min(100, puntaje)
-  const [animado, setAnimado] = useState(0)
-
-  useEffect(() => {
-    const t = setTimeout(() => setAnimado(pctVisual), 100)
-    return () => clearTimeout(t)
-  }, [pctVisual])
-
-  const offset = circumference - (animado / 100) * circumference
-  const inner = size - 26
-
-  return (
-    <div style={{ position:'relative', width:size, height:size }}>
-      <svg width={size} height={size} style={{ transform:'rotate(-90deg)' }}>
-        <circle cx={size/2} cy={size/2} r={radius} fill="none" stroke={T.s3} strokeWidth={8} />
-        <circle
-          cx={size/2} cy={size/2} r={radius} fill="none"
-          stroke={info.color} strokeWidth={8} strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          style={{ transition:'stroke-dashoffset 1.2s ease-out' }}
-        />
-      </svg>
-      <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
-        {avatarUrl
-          ? <img src={avatarUrl} style={{ width:inner, height:inner, borderRadius:'50%', objectFit:'cover' }} />
-          : <div style={{ width:inner, height:inner, borderRadius:'50%', background:G, display:'flex', alignItems:'center', justifyContent:'center', fontSize:Math.round(inner*0.36), fontWeight:800, color:'#0a0a0a' }}>
-              {iniciales}
-            </div>
-        }
       </div>
     </div>
   )
@@ -928,7 +894,9 @@ export default function App() {
       setBloqueados(bloqueados.filter((id:any) => id !== otroId))
       setBloqueadosInfo(bloqueadosInfo.filter((u:any) => u.id !== otroId))
     }
-  }function abrirReporte(obj: any) {
+  }
+
+  function abrirReporte(obj: any) {
     setReporteObjetivo(obj)
     setReporteMotivo('')
     setReporteDetalle('')
@@ -939,9 +907,7 @@ export default function App() {
   function cerrarReporte() {
     setReporteObjetivo(null)
     setReporteEnviado(false)
-  }
-
-  async function enviarReporte() {
+  }async function enviarReporte() {
     if (!reporteMotivo) { setMensajeReporte('Elegi un motivo'); return }
     setEnviandoReporte(true)
     setMensajeReporte('')
@@ -1669,9 +1635,19 @@ export default function App() {
     return (
       <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', paddingBottom:100 }}>
         <link href={FONTS} rel="stylesheet" />
-        <div style={{ background:T.s1, padding:'16px 18px', borderBottom:'1px solid '+T.border, display:'flex', alignItems:'center', gap:12, position:'sticky', top:0, zIndex:60 }}>
-          <div style={{ fontWeight:700, fontSize:17, flex:1 }}>Mi perfil</div>
-          <button onClick={abrirEditarPerfil} style={{ background:T.s2, border:'1px solid '+T.border2, color:T.gold, borderRadius:12, padding:'6px 12px', fontSize:12, fontWeight:700, cursor:'pointer' }}>
+
+        <div style={{ position:'relative', height:112, background: PORTADA_ELEGIDA ? T.s2 : 'linear-gradient(160deg,'+T.s2+','+T.s1+')', overflow:'hidden' }}>
+          {PORTADA_ELEGIDA
+            ? <img src={PORTADA_ELEGIDA} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
+            : <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:T.serif, fontSize:13, letterSpacing:'0.3em', color:T.muted, textTransform:'uppercase' }}>
+                Tu Changarro Libre
+              </div>
+          }
+          <button onClick={abrirEditarPerfil} style={{
+            position:'absolute', top:14, right:14, background:'rgba(0,0,0,0.45)', color:'#fff',
+            border:'none', borderRadius:20, padding:'7px 16px', fontSize:12, fontWeight:600,
+            cursor:'pointer', fontFamily:T.font
+          }}>
             Editar
           </button>
         </div>
@@ -1679,110 +1655,89 @@ export default function App() {
         {cargandoPerfil && <p style={{ color:T.muted, textAlign:'center', padding:40 }}>Cargando perfil...</p>}
 
         {!cargandoPerfil && perfilData && (
-          <div style={{ padding:'20px 18px' }}>
+          <div style={{ padding:'0 22px 20px' }}>
 
-            <div style={{ borderRadius:24, overflow:'hidden', border:'1px solid '+T.border2, marginBottom:16, boxShadow:'0 0 40px '+T.glow3 }}>
-              <div style={{ height:76, background:G }} />
-              <div style={{ background:T.s2, padding:'0 22px 22px', textAlign:'center' }}>
-                <div style={{
-                  marginTop:-46, display:'inline-block', border:'4px solid '+T.s2,
-                  borderRadius:'50%', background:T.s2, lineHeight:0
-                }}>
-                  <ReputationRing nivel={nivel} puntaje={puntaje} avatarUrl={perfilData.avatar_url} iniciales={iniciales} size={104} />
-                </div>
-                <div style={{ fontSize:20, fontWeight:800, marginTop:12 }}>{perfilData.nombre}</div>
-                <div style={{ fontSize:12, color:T.muted, marginTop:2 }}>{puntaje} puntos</div>
-                <div style={{
-                  marginTop:8, padding:'4px 14px', borderRadius:20, fontSize:12, fontWeight:700,
-                  color: info.color, border:'1px solid '+info.color, background: info.color+'18',
-                  display:'inline-block'
-                }}>
-                  {nivel}
-                </div>
-
-                {siguienteNivel ? (
-                  <div style={{ marginTop:18 }}>
-                    <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:T.muted, marginBottom:6 }}>
-                      <span>{nivel}</span>
-                      <span>{siguienteNivel}</span>
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', textAlign:'center' }}>
+              <div style={{ marginTop:-40, width:88, height:88, boxSizing:'content-box', border:'4px solid '+T.bg, borderRadius:'50%', background:T.bg, overflow:'hidden', flexShrink:0 }}>
+                {perfilData.avatar_url
+                  ? <img src={perfilData.avatar_url} alt="" style={{ width:88, height:88, objectFit:'cover', display:'block' }} />
+                  : <div style={{ width:88, height:88, background:T.s3, display:'flex', alignItems:'center', justifyContent:'center', fontSize:32, fontWeight:700, color:T.sub, lineHeight:1 }}>
+                      {iniciales}
                     </div>
-                    <div style={{ height:6, borderRadius:10, background:T.s3, overflow:'hidden' }}>
-                      <div style={{ height:'100%', width:pctProgreso+'%', background:G, borderRadius:10, transition:'width 1s ease-out' }} />
-                    </div>
-                    <div style={{ fontSize:11, color:T.muted, marginTop:8 }}>
-                      Te faltan {puntosFaltan} puntos para llegar a {siguienteNivel}
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ marginTop:16, fontSize:12, color:T.gold, fontWeight:700 }}>
-                    Alcanzaste el nivel maximo del changarro
-                  </div>
-                )}
+                }
+              </div>
+              <div style={{ fontSize:22, fontWeight:700, marginTop:12, letterSpacing:'-0.01em' }}>{perfilData.nombre}</div>
+              {ubicacion ? <div style={{ fontSize:13, color:T.muted, marginTop:4 }}>{ubicacion}</div> : null}
+              <div style={{ fontSize:12, color:T.sub, marginTop:8 }}>
+                Nivel {nivel} - {puntaje} puntos
               </div>
             </div>
 
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:16 }}>
-              <div style={{ background:T.s2, border:'1px solid '+T.border2, borderTop:'3px solid '+T.gold, borderRadius:14, padding:'14px 8px', textAlign:'center' }}>
-                <div style={{ fontSize:20, fontWeight:800, color:T.gold }}>{misPublicaciones.length}</div>
-                <div style={{ fontSize:10, color:T.muted, marginTop:4 }}>Publicados</div>
+            <div style={{ marginTop:18 }}>
+              <div style={{ height:2, borderRadius:2, background:T.s3, overflow:'hidden' }}>
+                <div style={{ height:'100%', width:(siguienteNivel ? pctProgreso : 100)+'%', background:T.gold, borderRadius:2, transition:'width 1s ease-out' }} />
               </div>
-              <div style={{ background:T.s2, border:'1px solid '+T.border2, borderTop:'3px solid '+T.green, borderRadius:14, padding:'14px 8px', textAlign:'center' }}>
-                <div style={{ fontSize:20, fontWeight:800, color:T.green }}>{perfilData.cantidad_ventas || 0}</div>
-                <div style={{ fontSize:10, color:T.muted, marginTop:4 }}>Vendidos</div>
-              </div>
-              <div style={{ background:T.s2, border:'1px solid '+T.border2, borderTop:'3px solid '+T.blue, borderRadius:14, padding:'14px 8px', textAlign:'center' }}>
-                <div style={{ fontSize:20, fontWeight:800, color:T.blue }}>{vistasTotales}</div>
-                <div style={{ fontSize:10, color:T.muted, marginTop:4 }}>Vistas</div>
+              <div style={{ fontSize:11, color:T.muted, marginTop:8, textAlign:'center' }}>
+                {siguienteNivel ? ('Te faltan ' + puntosFaltan + ' puntos para llegar a ' + siguienteNivel) : 'Alcanzaste el nivel maximo'}
               </div>
             </div>
 
-            <div style={{ display:'flex', gap:10, marginBottom:20 }}>
-              <button onClick={abrirBandejaMensajes} style={{
-                flex:1, background:T.s2, border:'1px solid '+T.border2, borderRadius:16,
-                padding:'14px', cursor:'pointer', textAlign:'left'
-              }}>
-                <div style={{ fontSize:11, color:T.muted, marginBottom:2 }}>Bandeja</div>
-                <div style={{ fontSize:14, fontWeight:700, color:T.gold }}>Mensajes →</div>
-              </button>
-              <div style={{ flex:1, background:T.s2, border:'1px solid '+T.border2, borderRadius:16, padding:'14px' }}>
-                <div style={{ fontSize:11, color:T.muted, marginBottom:2 }}>Ubicacion</div>
-                <div style={{ fontSize:14, fontWeight:700 }}>{ubicacion || 'No especificada'}</div>
+            <div style={{ display:'flex', margin:'26px 0 6px', borderTop:'1px solid '+T.border, borderBottom:'1px solid '+T.border, padding:'16px 0' }}>
+              <div style={{ flex:1, textAlign:'center' }}>
+                <div style={{ fontSize:20, fontWeight:700 }}>{misPublicaciones.length}</div>
+                <div style={{ fontSize:11, color:T.muted, marginTop:3 }}>Publicados</div>
+              </div>
+              <div style={{ flex:1, textAlign:'center', borderLeft:'1px solid '+T.border, borderRight:'1px solid '+T.border }}>
+                <div style={{ fontSize:20, fontWeight:700 }}>{perfilData.cantidad_ventas || 0}</div>
+                <div style={{ fontSize:11, color:T.muted, marginTop:3 }}>Vendidos</div>
+              </div>
+              <div style={{ flex:1, textAlign:'center' }}>
+                <div style={{ fontSize:20, fontWeight:700 }}>{vistasTotales}</div>
+                <div style={{ fontSize:11, color:T.muted, marginTop:3 }}>Vistas</div>
               </div>
             </div>
 
-            <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', marginBottom:14, fontWeight:600 }}>
-              MIS PUBLICACIONES ({misPublicaciones.length})
+            <button onClick={abrirBandejaMensajes} style={{
+              width:'100%', background:'none', border:'none', borderBottom:'1px solid '+T.border,
+              padding:'16px 2px', display:'flex', alignItems:'center', justifyContent:'space-between',
+              cursor:'pointer', color:T.text, fontFamily:T.font, fontSize:14, fontWeight:500, marginBottom:26
+            }}>
+              <span>Mensajes</span>
+              <span style={{ color:T.muted }}>{'>'}</span>
+            </button>
+
+            <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.14em', marginBottom:14, fontWeight:600 }}>
+              MIS PUBLICACIONES
             </div>
 
             {misPublicaciones.length===0 && (
-              <div style={{ textAlign:'center', padding:'40px 20px', color:T.muted, background:T.s2, borderRadius:16, border:'1px solid '+T.border2 }}>
-                <div style={{ fontSize:14, fontWeight:700, marginBottom:6 }}>Todavia no publicaste nada</div>
+              <div style={{ textAlign:'center', padding:'36px 20px', color:T.muted }}>
+                <div style={{ fontSize:14, fontWeight:600, marginBottom:6, color:T.sub }}>Todavia no publicaste nada</div>
                 <div style={{ fontSize:12 }}>Tus productos van a aparecer aca</div>
               </div>
             )}
 
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'18px 12px' }}>
               {misPublicaciones.map((p:any)=>(
-                <div key={p.id} onClick={()=>abrirDetalle(p,'perfil')} style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, overflow:'hidden', cursor:'pointer' }}>
-                  <div style={{ position:'relative' }}>
+                <div key={p.id} onClick={()=>abrirDetalle(p,'perfil')} style={{ cursor:'pointer' }}>
+                  <div style={{ position:'relative', borderRadius:14, overflow:'hidden', background:T.s2 }}>
                     {p.foto_url
-                      ? <img src={p.foto_url} alt={p.titulo} style={{ width:'100%', height:110, objectFit:'cover', display:'block' }} />
-                      : <div style={{ height:90, background:'linear-gradient(135deg,'+T.s3+','+T.s4+')', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, color:T.gold, fontWeight:'bold', textAlign:'center', padding:6 }}>{p.categoria?.toUpperCase()}</div>
+                      ? <img src={p.foto_url} alt={p.titulo} loading="lazy" style={{ width:'100%', aspectRatio:'1 / 1', objectFit:'cover', display:'block' }} />
+                      : <div style={{ width:'100%', aspectRatio:'1 / 1', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, color:T.muted, fontWeight:600, textAlign:'center', padding:6 }}>{p.categoria?.toUpperCase()}</div>
                     }
-                    <div style={{
-                      position:'absolute', top:8, right:8, background:'rgba(0,0,0,0.65)', color:'#fff',
-                      fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:20
-                    }}>
+                    <div style={{ position:'absolute', top:8, left:8, background:'rgba(0,0,0,0.55)', color:'#fff', fontSize:10, fontWeight:600, padding:'3px 8px', borderRadius:20 }}>
                       {p.vistas || 0} vistas
                     </div>
                   </div>
-                  <div style={{ padding:'10px 12px' }}>
-                    <div style={{ fontWeight:700, fontSize:13, marginBottom:4, lineHeight:1.3 }}>{p.titulo}</div>
-                    <div style={{ color:T.gold, fontWeight:800, fontSize:15, marginBottom:4 }}>${Number(p.precio).toLocaleString()}</div>
-                    <div style={{ fontSize:10, color:T.muted, marginBottom:8 }}>{tiempoTranscurrido(p.fecha_publicacion)}</div>
-                    <button onClick={(e:any)=>{ e.stopPropagation(); eliminarPublicacion(p.id) }} style={{ width:'100%', background:'none', border:'1px solid '+T.red, color:T.red, borderRadius:10, padding:'6px', fontSize:11, fontWeight:700, cursor:'pointer' }}>
-                      Eliminar
-                    </button>
+                  <div style={{ padding:'8px 2px 0' }}>
+                    <div style={{ fontWeight:500, fontSize:13, lineHeight:1.3, color:T.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.titulo}</div>
+                    <div style={{ color:T.gold, fontWeight:700, fontSize:15, marginTop:3 }}>${Number(p.precio).toLocaleString()}</div>
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:3 }}>
+                      <span style={{ fontSize:10, color:T.muted }}>{tiempoTranscurrido(p.fecha_publicacion)}</span>
+                      <button onClick={(e:any)=>{ e.stopPropagation(); eliminarPublicacion(p.id) }} style={{ background:'none', border:'none', color:T.muted, fontSize:11, cursor:'pointer', padding:'4px 0 4px 8px', fontFamily:T.font }}>
+                        Eliminar
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
