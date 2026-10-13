@@ -345,6 +345,15 @@ function IconoCorazon({ activo, size = 22 }: any) {
   )
 }
 
+function IconoUbicacion({ size = 12 }: any) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}>
+      <path d="M12 21s-7-6.2-7-11a7 7 0 1 1 14 0c0 4.8-7 11-7 11z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </svg>
+  )
+}
+
 function IconoAtras({ size = 22 }: any) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
@@ -384,6 +393,7 @@ function DetalleProducto({ p, vendedor, esFav, esMio, onBack, onFav, onContactar
   const desc = p.descripcion || ''
   const larga = desc.length > 160
   const ubicacion = vendedor ? [vendedor.ciudad, vendedor.provincia].filter(Boolean).join(', ') : ''
+  const ciudadTxt = (vendedor && (vendedor.ciudad || vendedor.provincia)) || p.ubicacion_vendedor || ''
   const nivel = (vendedor && vendedor.nivel_reputacion) ? vendedor.nivel_reputacion : 'Nuevo'
   const colorNivel = (NIVELES[nivel] || NIVELES['Nuevo']).color
 
@@ -455,10 +465,16 @@ function DetalleProducto({ p, vendedor, esFav, esMio, onBack, onFav, onContactar
       </div>
 
       <div style={{ padding:'22px 20px 0' }}>
-        <div style={{ fontSize:30, fontWeight:800, color:T.gold, letterSpacing:'-0.02em', lineHeight:1.1 }}>
+        <div style={{ fontSize:28, fontWeight:700, color:T.text, letterSpacing:'-0.02em', lineHeight:1.1 }}>
           ${Number(p.precio).toLocaleString('es-AR')}
         </div>
         <div style={{ fontSize:19, fontWeight:600, marginTop:8, lineHeight:1.3 }}>{p.titulo}</div>
+        {ciudadTxt ? (
+          <div style={{ display:'flex', alignItems:'center', gap:5, fontSize:13, color:T.sub, marginTop:8 }}>
+            <IconoUbicacion size={13} />
+            <span>{ciudadTxt}</span>
+          </div>
+        ) : null}
         <div style={{ fontSize:12, color:T.muted, marginTop:8 }}>
           {p.categoria} · {tiempoTranscurrido(p.fecha_publicacion)} · {p.vistas || 0} vistas
         </div>
@@ -839,8 +855,18 @@ export default function App() {
   async function cargarProductos() {
     setCargando(true)
     const res = await supabase.from('publicaciones').select('*').order('fecha_publicacion', { ascending: false })
+    if (res.error) { setCargando(false); return }
+    const lista: any[] = res.data || []
+    const ids = Array.from(new Set(lista.map((p:any) => p.vendedor_id).filter(Boolean)))
+    const mapa: any = {}
+    if (ids.length > 0) {
+      const resU = await supabase.from('usuarios').select('id,ciudad,provincia').in('id', ids)
+      if (!resU.error && resU.data) {
+        resU.data.forEach((u:any) => { mapa[u.id] = u.ciudad || u.provincia || '' })
+      }
+    }
+    setProductos(lista.map((p:any) => ({ ...p, ubicacion_vendedor: mapa[p.vendedor_id] || '' })))
     setCargando(false)
-    if (!res.error) setProductos(res.data)
   }
 
   async function cargarFavoritos(uid: any) {
@@ -1309,7 +1335,7 @@ export default function App() {
               {chatOtroNombre ? chatProducto.titulo : 'Chat del producto'}
             </div>
           </div>
-          <div style={{ color:T.gold, fontWeight:800, fontSize:16 }}>${Number(chatProducto.precio).toLocaleString()}</div>
+          <div style={{ color:T.text, fontWeight:700, fontSize:16 }}>${Number(chatProducto.precio).toLocaleString()}</div>
           <button onClick={()=>setMenuChat(!menuChat)} style={{ background:'none', border:'none', color:T.text, fontSize:22, fontWeight:'bold', cursor:'pointer', padding:'0 4px', lineHeight:1 }}>
             ⋯
           </button>
@@ -1732,7 +1758,7 @@ export default function App() {
                   </div>
                   <div style={{ padding:'8px 2px 0' }}>
                     <div style={{ fontWeight:500, fontSize:13, lineHeight:1.3, color:T.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.titulo}</div>
-                    <div style={{ color:T.gold, fontWeight:700, fontSize:15, marginTop:3 }}>${Number(p.precio).toLocaleString()}</div>
+                    <div style={{ color:T.text, fontWeight:700, fontSize:15, marginTop:3 }}>${Number(p.precio).toLocaleString()}</div>
                     <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:3 }}>
                       <span style={{ fontSize:10, color:T.muted }}>{tiempoTranscurrido(p.fecha_publicacion)}</span>
                       <button onClick={(e:any)=>{ e.stopPropagation(); eliminarPublicacion(p.id) }} style={{ background:'none', border:'none', color:T.muted, fontSize:11, cursor:'pointer', padding:'4px 0 4px 8px', fontFamily:T.font }}>
@@ -1815,8 +1841,17 @@ export default function App() {
               </div>
               <div style={{ padding:'10px 12px', flex:1, display:'flex', flexDirection:'column' }}>
                 <div style={{ fontWeight:700, fontSize:13, marginBottom:4, letterSpacing:'-0.01em', lineHeight:1.3 }}>{p.titulo}</div>
-                <div style={{ color:T.gold, fontWeight:800, fontSize:16, marginBottom:4 }}>${Number(p.precio).toLocaleString()}</div>
-                <div style={{ fontSize:10, color:T.muted }}>{tiempoTranscurrido(p.fecha_publicacion)}</div>
+                <div style={{ color:T.text, fontWeight:700, fontSize:16, marginBottom:6, letterSpacing:'-0.01em' }}>${Number(p.precio).toLocaleString()}</div>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:6, fontSize:10, color:T.muted, marginTop:'auto' }}>
+                  {p.ubicacion_vendedor
+                    ? <span style={{ display:'flex', alignItems:'center', gap:3, minWidth:0 }}>
+                        <IconoUbicacion size={11} />
+                        <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.ubicacion_vendedor}</span>
+                      </span>
+                    : <span />
+                  }
+                  <span style={{ flexShrink:0 }}>{tiempoTranscurrido(p.fecha_publicacion)}</span>
+                </div>
               </div>
             </div>
           ))}
