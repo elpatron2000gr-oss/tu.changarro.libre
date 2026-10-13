@@ -907,7 +907,8 @@ export default function App() {
   function cerrarReporte() {
     setReporteObjetivo(null)
     setReporteEnviado(false)
-  }async function enviarReporte() {
+  }
+  async function enviarReporte() {
     if (!reporteMotivo) { setMensajeReporte('Elegi un motivo'); return }
     setEnviandoReporte(true)
     setMensajeReporte('')
@@ -1633,7 +1634,7 @@ export default function App() {
     const iniciales = perfilData ? (perfilData.nombre || '?').charAt(0).toUpperCase() : '?'
 
     return (
-      <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', paddingBottom:100 }}>
+      <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, width:'100vw', maxWidth:430, boxSizing:'border-box', overflowX:'hidden', margin:'0 auto', paddingBottom:100 }}>
         <link href={FONTS} rel="stylesheet" />
 
         <div style={{ position:'relative', height:112, background: PORTADA_ELEGIDA ? T.s2 : 'linear-gradient(160deg,'+T.s2+','+T.s1+')', overflow:'hidden' }}>
@@ -1658,7 +1659,7 @@ export default function App() {
           <div style={{ padding:'0 22px 20px' }}>
 
             <div style={{ display:'flex', flexDirection:'column', alignItems:'center', textAlign:'center' }}>
-              <div style={{ marginTop:-40, width:88, height:88, boxSizing:'content-box', border:'4px solid '+T.bg, borderRadius:'50%', background:T.bg, overflow:'hidden', flexShrink:0 }}>
+              <div style={{ position:'relative', zIndex:2, marginTop:-40, width:88, height:88, boxSizing:'content-box', border:'4px solid '+T.bg, borderRadius:'50%', background:T.bg, overflow:'hidden', flexShrink:0 }}>
                 {perfilData.avatar_url
                   ? <img src={perfilData.avatar_url} alt="" style={{ width:88, height:88, objectFit:'cover', display:'block' }} />
                   : <div style={{ width:88, height:88, background:T.s3, display:'flex', alignItems:'center', justifyContent:'center', fontSize:32, fontWeight:700, color:T.sub, lineHeight:1 }}>
@@ -1717,9 +1718,9 @@ export default function App() {
               </div>
             )}
 
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'18px 12px' }}>
+            <div style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr)', gap:'18px 12px' }}>
               {misPublicaciones.map((p:any)=>(
-                <div key={p.id} onClick={()=>abrirDetalle(p,'perfil')} style={{ cursor:'pointer' }}>
+                <div key={p.id} onClick={()=>abrirDetalle(p,'perfil')} style={{ cursor:'pointer', minWidth:0 }}>
                   <div style={{ position:'relative', borderRadius:14, overflow:'hidden', background:T.s2 }}>
                     {p.foto_url
                       ? <img src={p.foto_url} alt={p.titulo} loading="lazy" style={{ width:'100%', aspectRatio:'1 / 1', objectFit:'cover', display:'block' }} />
@@ -1826,4 +1827,3 @@ export default function App() {
     </div>
   )
 }
-
