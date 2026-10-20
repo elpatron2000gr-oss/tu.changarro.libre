@@ -345,6 +345,50 @@ function IconoCorazon({ activo, size = 22 }: any) {
   )
 }
 
+// Reduce el tamano de una foto antes de subirla (misma calidad a simple vista en el celular).
+async function comprimirImagen(file: any, maxLado: number, calidad: number): Promise<any> {
+  try {
+    if (!file || !file.type || file.type.indexOf('image/') !== 0) return file
+    if (file.type === 'image/gif') return file
+    const url = URL.createObjectURL(file)
+    const img: any = await new Promise((resolve, reject) => {
+      const im = new Image()
+      im.onload = () => resolve(im)
+      im.onerror = () => reject(new Error('no se pudo leer la imagen'))
+      im.src = url
+    })
+    URL.revokeObjectURL(url)
+    let w = img.naturalWidth
+    let h = img.naturalHeight
+    if (!w || !h) return file
+    const escala = Math.min(1, maxLado / Math.max(w, h))
+    w = Math.round(w * escala)
+    h = Math.round(h * escala)
+    const canvas = document.createElement('canvas')
+    canvas.width = w
+    canvas.height = h
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return file
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, w, h)
+    ctx.drawImage(img, 0, 0, w, h)
+    const blob: any = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', calidad))
+    if (!blob) return file
+    if (escala === 1 && blob.size >= file.size) return file
+    return blob
+  } catch (e) {
+    return file
+  }
+}
+
+function IconoPlay({ size = 16 }: any) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="#fff" style={{ display:'block' }}>
+      <path d="M8 5v14l11-7z" />
+    </svg>
+  )
+}
+
 function IconoUbicacion({ size = 12 }: any) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}>
@@ -412,9 +456,9 @@ function DetalleProducto({ p, vendedor, esFav, esMio, onBack, onFav, onContactar
             {(p.categoria || '').toUpperCase()}
           </div>
         ) : medios[idx].tipo === 'video' ? (
-          <video src={medios[idx].url} controls playsInline style={{ width:'100%', height:'100%', objectFit:'cover', display:'block', background:'#000' }} />
+          <video src={medios[idx].url} controls playsInline preload="metadata" style={{ width:'100%', height:'100%', objectFit:'cover', display:'block', background:'#000' }} />
         ) : (
-          <img src={medios[idx].url} style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
+          <img src={medios[idx].url} decoding="async" style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
         )}
 
         <div style={{ position:'absolute', top:12, left:12, right:12, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
@@ -1025,8 +1069,26 @@ export default function App() {
       return
     }
     setMensajePublicar('')
-    setVideoFile(file)
-    setVideoPreview(URL.createObjectURL(file))
+    const input = e.target
+    const urlTemp = URL.createObjectURL(file)
+    const v = document.createElement('video')
+    v.preload = 'metadata'
+    v.onloadedmetadata = () => {
+      const dur = v.duration
+      if (dur && isFinite(dur) && dur > 31) {
+        URL.revokeObjectURL(urlTemp)
+        setMensajePublicar('El video dura mas de 30 segundos. Elegi uno mas corto.')
+        input.value = ''
+        return
+      }
+      setVideoFile(file)
+      setVideoPreview(urlTemp)
+    }
+    v.onerror = () => {
+      setVideoFile(file)
+      setVideoPreview(urlTemp)
+    }
+    v.src = urlTemp
   }
 
   function handleAvatar(e: any) {
@@ -1046,23 +1108,27 @@ export default function App() {
     let fotoUrl = null
     let fotosExtra: string[] = []
     if (fotoFiles.length > 0) {
+      setMensajePublicar('Optimizando fotos...')
       for (let i = 0; i < fotoFiles.length; i++) {
-        const file = fotoFiles[i]
-        const ext = file.name.split('.').pop()
+        const original = fotoFiles[i]
+        const file = await comprimirImagen(original, 1280, 0.8)
+        const nueva = file !== original
+        const ext = nueva ? 'jpg' : original.name.split('.').pop()
         const path = userId + '-' + Date.now() + '-' + i + '.' + ext
-        const subida = await supabase.storage.from('fotos').upload(path, file)
+        const subida = await supabase.storage.from('fotos').upload(path, file, { contentType: nueva ? 'image/jpeg' : original.type, cacheControl: '31536000' })
         if (subida.error) { setPublicando(false); setMensajePublicar('Error subiendo una foto: ' + subida.error.message); return }
         const url = supabase.storage.from('fotos').getPublicUrl(path).data.publicUrl
         if (i === 0) fotoUrl = url
         else fotosExtra.push(url)
       }
+      setMensajePublicar('')
     }
 
     let videoUrl = null
     if (videoFile) {
       const ext = videoFile.name.split('.').pop()
       const path = userId + '-' + Date.now() + '-v.' + ext
-      const subidaVideo = await supabase.storage.from('videos').upload(path, videoFile)
+      const subidaVideo = await supabase.storage.from('videos').upload(path, videoFile, { cacheControl: '31536000' })
       if (!subidaVideo.error) { const url = supabase.storage.from('videos').getPublicUrl(path); videoUrl = url.data.publicUrl }
       else { setPublicando(false); setMensajePublicar('Error subiendo el video: ' + subidaVideo.error.message); return }
     }
@@ -1160,9 +1226,11 @@ export default function App() {
     setMensajeEditar('')
     let avatarUrl = perfilData?.avatar_url || null
     if (avatarFile) {
-      const ext = avatarFile.name.split('.').pop()
+      const avatarOpt = await comprimirImagen(avatarFile, 600, 0.85)
+      const avatarNueva = avatarOpt !== avatarFile
+      const ext = avatarNueva ? 'jpg' : avatarFile.name.split('.').pop()
       const path = 'avatar-' + userId + '-' + Date.now() + '.' + ext
-      const subida = await supabase.storage.from('fotos').upload(path, avatarFile)
+      const subida = await supabase.storage.from('fotos').upload(path, avatarOpt, { contentType: avatarNueva ? 'image/jpeg' : avatarFile.type, cacheControl: '31536000' })
       if (subida.error) { setGuardandoPerfil(false); setMensajeEditar('Error subiendo la foto: ' + subida.error.message); return }
       const url = supabase.storage.from('fotos').getPublicUrl(path)
       avatarUrl = url.data.publicUrl
@@ -1485,7 +1553,7 @@ export default function App() {
               : <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', color:T.muted, gap:8 }}>
                   <div style={{ fontSize:36, color:T.gold, fontWeight:'bold' }}>+</div>
                   <div style={{ fontSize:13 }}>Toca para agregar video</div>
-                  <div style={{ fontSize:11 }}>Opcional, maximo 50 MB</div>
+                  <div style={{ fontSize:11 }}>Opcional, hasta 30 segundos</div>
                 </div>
             }
           </label>
@@ -1819,12 +1887,17 @@ export default function App() {
           {productosFiltrados.map(p=>(
             <div key={p.id} onClick={()=>abrirDetalle(p,'home')} style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, overflow:'hidden', boxShadow:'0 2px 12px rgba(0,0,0,0.3)', display:'flex', flexDirection:'column', cursor:'pointer' }}>
               <div style={{ position:'relative' }}>
-                {p.video_url
-                  ? <video src={p.video_url} autoPlay muted loop playsInline style={{ width:'100%', height:120, objectFit:'cover', display:'block' }} />
-                  : p.foto_url
-                    ? <img src={p.foto_url} alt={p.titulo} style={{ width:'100%', height:120, objectFit:'cover', display:'block' }} />
+                {p.foto_url
+                  ? <img src={p.foto_url} alt={p.titulo} loading="lazy" decoding="async" style={{ width:'100%', height:120, objectFit:'cover', display:'block' }} />
+                  : p.video_url
+                    ? <video src={p.video_url + '#t=0.1'} preload="metadata" muted playsInline style={{ width:'100%', height:120, objectFit:'cover', display:'block', background:'#000' }} />
                     : <div style={{ height:90, background:'linear-gradient(135deg,'+T.s3+','+T.s4+')', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, color:T.gold, fontWeight:'bold', textAlign:'center', padding:6 }}>{p.categoria?.toUpperCase()}</div>
                 }
+                {p.video_url && (
+                  <div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', width:34, height:34, borderRadius:'50%', background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', paddingLeft:2, pointerEvents:'none' }}>
+                    <IconoPlay size={16} />
+                  </div>
+                )}
                 {p.fotos_extra_urls && p.fotos_extra_urls.length > 0 && (
                   <div style={{ position:'absolute', top:8, right:8, background:'rgba(0,0,0,0.65)', color:'#fff', fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:20 }}>
                     +{p.fotos_extra_urls.length}
