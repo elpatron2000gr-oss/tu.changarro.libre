@@ -43,7 +43,7 @@ const LIGHT = {
 let T = DARK
 const G = 'linear-gradient(135deg,' + DARK.gold + ',' + DARK.goldDk + ')'
 const FONTS = 'https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap'
-const CATEGORIAS = ['Todo','Electronica','Ropa','Hogar','Deportes','Servicios','Vehiculos','Inmuebles','Otro']
+const CATEGORIAS = ['Todo','Servicios','Electronica','Ropa','Hogar','Deportes','Vehiculos','Inmuebles','Otro']
 
 const PROVINCIAS = [
   'Buenos Aires','CABA','Catamarca','Chaco','Chubut','Cordoba','Corrientes',
@@ -1855,22 +1855,26 @@ export default function App() {
             <div style={{ fontSize:11, color:T.muted }}>Bienvenido, {userName}</div>
           </div>
         </div>
-        <input value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar productos..."
+        <input value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar productos o servicios..."
           style={{ width:'100%', padding:'10px 16px', borderRadius:24, border:'1px solid '+T.border2, background:T.s2, color:T.text, fontSize:14, outline:'none', fontFamily:T.font, boxSizing:'border-box' }}
         />
       </div>
 
-      <div style={{ display:'flex', gap:8, padding:'12px 18px', overflowX:'auto' }}>
+      <div style={{ display:'flex', gap:24, padding:'0 18px', overflowX:'auto', borderBottom:'1px solid '+T.border }}>
         {CATEGORIAS.map(c=>(
-          <button key={c} onClick={()=>setCatActiva(c)} style={{ padding:'6px 14px', borderRadius:20, border:'none', background:catActiva===c?G:T.s2, color:catActiva===c?'#0a0a0a':T.sub, fontWeight:catActiva===c?700:500, fontSize:12, cursor:'pointer', whiteSpace:'nowrap', fontFamily:T.font }}>
-            {c}
+          <button key={c} onClick={()=>setCatActiva(c)} style={{
+            background:'none', border:'none', borderBottom:'2px solid '+(catActiva===c?T.text:'transparent'),
+            padding:'13px 0 11px', color:catActiva===c?T.text:T.muted, fontWeight:catActiva===c?700:500,
+            fontSize:13, cursor:'pointer', whiteSpace:'nowrap', fontFamily:T.font, flexShrink:0
+          }}>
+            {c==='Electronica' ? 'Electrónica' : c==='Vehiculos' ? 'Vehículos' : c}
           </button>
         ))}
       </div>
 
-      <div style={{ padding:'0 18px 20px' }}>
+      <div style={{ padding:'18px 18px 20px' }}>
         <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', marginBottom:14, fontWeight:600 }}>
-          {productosFiltrados.length} PRODUCTOS{catActiva!=='Todo'?' EN '+catActiva.toUpperCase():''}
+          {productosFiltrados.length} {catActiva==='Servicios' ? 'SERVICIOS' : 'PRODUCTOS'}{(catActiva!=='Todo' && catActiva!=='Servicios') ? ' EN '+catActiva.toUpperCase() : ''}
         </div>
 
         {cargando&&<p style={{ color:T.muted, textAlign:'center', padding:40 }}>Cargando productos...</p>}
