@@ -301,14 +301,17 @@ function ModalBloqueo({ objetivo, bloqueando, onConfirmar, onCancelar }: any) {
   )
 }
 
-function BottomNav({ vista, setVista, abrirPerfil, abrirBandejaMensajes }: any) {
-  const item = (label: string, activo: boolean, onClick: any) => (
+function BottomNav({ vista, setVista, abrirPerfil, abrirBandejaMensajes, sinLeer }: any) {
+  const item = (label: string, activo: boolean, onClick: any, punto?: boolean) => (
     <button onClick={onClick} style={{
       background:'none', border:'none', cursor:'pointer', flex:1,
       display:'flex', flexDirection:'column', alignItems:'center', gap:4,
       padding:'8px 0', color: activo ? T.gold : T.muted, fontFamily:T.font
     }}>
-      <div style={{ fontSize:11, fontWeight: activo ? 800 : 600 }}>{label}</div>
+      <div style={{ fontSize:11, fontWeight: activo ? 800 : 600, position:'relative' }}>
+        {label}
+        {punto ? <span style={{ position:'absolute', top:-3, right:-9, width:7, height:7, borderRadius:'50%', background:T.gold }} /> : null}
+      </div>
     </button>
   )
 
@@ -320,7 +323,7 @@ function BottomNav({ vista, setVista, abrirPerfil, abrirBandejaMensajes }: any) 
       zIndex:70
     }}>
       {item('Inicio', vista==='home', ()=>setVista('home'))}
-      {item('Mensajes', vista==='mensajes', abrirBandejaMensajes)}
+      {item('Mensajes', vista==='mensajes', abrirBandejaMensajes, sinLeer > 0)}
 
       <button onClick={()=>setVista('publicar')} style={{
         width:52, height:52, borderRadius:'50%', background:G, border:'4px solid '+T.s1,
@@ -810,6 +813,7 @@ export default function App() {
   const [productos, setProductos] = useState<any[]>([])
   const [cargando, setCargando] = useState(false)
   const [favoritos, setFavoritos] = useState<any[]>([])
+  const [sinLeer, setSinLeer] = useState(0)
   const [catActiva, setCatActiva] = useState('Todo')
   const [busqueda, setBusqueda] = useState('')
   const [chatProducto, setChatProducto] = useState<any>(null)
@@ -895,6 +899,17 @@ export default function App() {
     })
     return () => { listener.subscription.unsubscribe() }
   }, [])
+
+  useEffect(() => {
+    if (userId) cargarSinLeer(userId)
+  }, [userId, vista])
+
+  async function cargarSinLeer(uid?: any) {
+    const id = uid || userId
+    if (!id) return
+    const res = await supabase.from('mensajes').select('id', { count: 'exact', head: true }).eq('receptor_id', id).eq('leido', false)
+    if (!res.error) setSinLeer(res.count || 0)
+  }
 
   async function cargarProductos() {
     setCargando(true)
@@ -1035,7 +1050,11 @@ export default function App() {
       .eq('publicacion_id', p.id)
       .or(filtro)
       .order('fecha', { ascending: true })
-    if (!res.error) setChatMensajes(res.data)
+    if (!res.error) {
+      setChatMensajes(res.data)
+      await supabase.rpc('marcar_mensajes_leidos', { p_pub: String(p.id), p_otro: String(otroUsuarioId) })
+      cargarSinLeer()
+    }
   }
 
   async function enviarMensaje() {
@@ -1252,6 +1271,7 @@ export default function App() {
     await supabase.auth.signOut()
     setAuthed(false)
     setUserId(null)
+    setSinLeer(0)
     setUserName('')
     setProductos([])
     setFavoritos([])
@@ -1468,6 +1488,7 @@ export default function App() {
             const nombre = c.interlocutor?.nombre || 'Usuario'
             const avatar = c.interlocutor?.avatar_url
             const yoEscribi = c.emisor_id === userId
+            const convSinLeer = c.receptor_id === userId && c.leido === false
             return (
               <button key={c.publicacion_id+'-'+c.otro} onClick={()=>abrirConversacion(c)} style={{
                 width:'100%', textAlign:'left', display:'flex', gap:14, alignItems:'center',
@@ -1497,15 +1518,16 @@ export default function App() {
                   <div style={{ fontSize:11, color:T.gold, fontWeight:600, marginBottom:3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                     {c.producto?.titulo || 'Publicacion eliminada'}
                   </div>
-                  <div style={{ fontSize:13, color:T.muted, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                  <div style={{ fontSize:13, color: convSinLeer ? T.text : T.muted, fontWeight: convSinLeer ? 600 : 400, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                     {yoEscribi ? 'Vos: ' : ''}{c.contenido}
                   </div>
                 </div>
+                {convSinLeer && <div style={{ width:9, height:9, borderRadius:'50%', background:T.gold, flexShrink:0 }} />}
               </button>
             )
           })}
         </div>
-        <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} abrirBandejaMensajes={abrirBandejaMensajes} />
+        <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} abrirBandejaMensajes={abrirBandejaMensajes} sinLeer={sinLeer} />
       </div>
     )
   }
@@ -1709,7 +1731,7 @@ export default function App() {
             {mensajeConfig && <p style={{ marginTop:14, color:T.red, fontSize:13, textAlign:'center' }}>{mensajeConfig}</p>}
           </div>
         </div>
-        <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} abrirBandejaMensajes={abrirBandejaMensajes} />
+        <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} abrirBandejaMensajes={abrirBandejaMensajes} sinLeer={sinLeer} />
       </div>
     )
   }
@@ -1797,7 +1819,14 @@ export default function App() {
               padding:'16px 2px', display:'flex', alignItems:'center', justifyContent:'space-between',
               cursor:'pointer', color:T.text, fontFamily:T.font, fontSize:14, fontWeight:500, marginBottom:26
             }}>
-              <span>Mensajes</span>
+              <span style={{ display:'flex', alignItems:'center', gap:10 }}>
+                Mensajes
+                {sinLeer > 0 && (
+                  <span style={{ background:T.text, color:T.bg, fontSize:11, fontWeight:700, minWidth:18, height:18, borderRadius:9, padding:'0 6px', boxSizing:'border-box', display:'inline-flex', alignItems:'center', justifyContent:'center' }}>
+                    {sinLeer > 99 ? '99+' : sinLeer}
+                  </span>
+                )}
+              </span>
               <span style={{ color:T.muted }}>{'>'}</span>
             </button>
 
@@ -1839,7 +1868,7 @@ export default function App() {
             </div>
           </div>
         )}
-        <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} abrirBandejaMensajes={abrirBandejaMensajes} />
+        <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} abrirBandejaMensajes={abrirBandejaMensajes} sinLeer={sinLeer} />
       </div>
     )
   }
@@ -1887,39 +1916,37 @@ export default function App() {
           </div>
         )}
 
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr)', gap:'22px 12px' }}>
           {productosFiltrados.map(p=>(
-            <div key={p.id} onClick={()=>abrirDetalle(p,'home')} style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, overflow:'hidden', boxShadow:'0 2px 12px rgba(0,0,0,0.3)', display:'flex', flexDirection:'column', cursor:'pointer' }}>
-              <div style={{ position:'relative' }}>
+            <div key={p.id} onClick={()=>abrirDetalle(p,'home')} style={{ cursor:'pointer', minWidth:0 }}>
+              <div style={{ position:'relative', borderRadius:14, overflow:'hidden', background:T.s2 }}>
                 {p.foto_url
-                  ? <img src={p.foto_url} alt={p.titulo} loading="lazy" decoding="async" style={{ width:'100%', height:120, objectFit:'cover', display:'block' }} />
+                  ? <img src={p.foto_url} alt={p.titulo} loading="lazy" decoding="async" style={{ width:'100%', aspectRatio:'1 / 1', objectFit:'cover', display:'block' }} />
                   : p.video_url
-                    ? <video src={p.video_url + '#t=0.1'} preload="metadata" muted playsInline style={{ width:'100%', height:120, objectFit:'cover', display:'block', background:'#000' }} />
-                    : <div style={{ height:90, background:'linear-gradient(135deg,'+T.s3+','+T.s4+')', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, color:T.gold, fontWeight:'bold', textAlign:'center', padding:6 }}>{p.categoria?.toUpperCase()}</div>
+                    ? <video src={p.video_url + '#t=0.1'} preload="metadata" muted playsInline style={{ width:'100%', aspectRatio:'1 / 1', objectFit:'cover', display:'block', background:'#000' }} />
+                    : <div style={{ width:'100%', aspectRatio:'1 / 1', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, color:T.muted, fontWeight:600, letterSpacing:'0.08em', textAlign:'center', padding:6, boxSizing:'border-box' }}>{p.categoria?.toUpperCase()}</div>
                 }
                 {p.video_url && (
-                  <div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', width:34, height:34, borderRadius:'50%', background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', paddingLeft:2, pointerEvents:'none' }}>
+                  <div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', width:36, height:36, borderRadius:'50%', background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', paddingLeft:2, pointerEvents:'none' }}>
                     <IconoPlay size={16} />
                   </div>
                 )}
                 {p.fotos_extra_urls && p.fotos_extra_urls.length > 0 && (
-                  <div style={{ position:'absolute', top:8, right:8, background:'rgba(0,0,0,0.65)', color:'#fff', fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:20 }}>
+                  <div style={{ position:'absolute', bottom:8, left:8, background:'rgba(0,0,0,0.55)', color:'#fff', fontSize:10, fontWeight:600, padding:'3px 8px', borderRadius:20 }}>
                     +{p.fotos_extra_urls.length}
                   </div>
                 )}
                 <button onClick={(e:any)=>{ e.stopPropagation(); toggleFavorito(p.id) }} style={{
-                  position:'absolute', bottom:8, right:8, padding:'6px 10px', borderRadius:10,
-                  border:'1px solid '+(favoritos.includes(p.id)?T.gold:'transparent'),
-                  background:favoritos.includes(p.id)?T.gold+'cc':'rgba(0,0,0,0.5)',
-                  color:favoritos.includes(p.id)?'#0a0a0a':'#fff', fontWeight:700, fontSize:10, cursor:'pointer'
+                  position:'absolute', top:8, right:8, width:32, height:32, borderRadius:'50%', border:'none', padding:0,
+                  background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer'
                 }}>
-                  {favoritos.includes(p.id)?'FAV':'fav'}
+                  <IconoCorazon activo={favoritos.includes(p.id)} size={16} />
                 </button>
               </div>
-              <div style={{ padding:'10px 12px', flex:1, display:'flex', flexDirection:'column' }}>
-                <div style={{ fontWeight:700, fontSize:13, marginBottom:4, letterSpacing:'-0.01em', lineHeight:1.3 }}>{p.titulo}</div>
-                <div style={{ color:T.text, fontWeight:700, fontSize:16, marginBottom:6, letterSpacing:'-0.01em' }}>${Number(p.precio).toLocaleString()}</div>
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:6, fontSize:10, color:T.muted, marginTop:'auto' }}>
+              <div style={{ padding:'9px 2px 0' }}>
+                <div style={{ fontWeight:500, fontSize:13, lineHeight:1.3, color:T.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.titulo}</div>
+                <div style={{ color:T.text, fontWeight:700, fontSize:16, marginTop:3, letterSpacing:'-0.01em' }}>${Number(p.precio).toLocaleString('es-AR')}</div>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:6, fontSize:10, color:T.muted, marginTop:4 }}>
                   {p.ubicacion_vendedor
                     ? <span style={{ display:'flex', alignItems:'center', gap:3, minWidth:0 }}>
                         <IconoUbicacion size={11} />
@@ -1935,7 +1962,7 @@ export default function App() {
         </div>
       </div>
 
-      <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} abrirBandejaMensajes={abrirBandejaMensajes} />
+      <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} abrirBandejaMensajes={abrirBandejaMensajes} sinLeer={sinLeer} />
     </div>
   )
 }
