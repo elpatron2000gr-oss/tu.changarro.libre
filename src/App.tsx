@@ -809,7 +809,7 @@ export default function App() {
   const [recoveryMode, setRecoveryMode] = useState(LLEGO_DE_RECUPERACION)
   const [legalAuth, setLegalAuth] = useState<any>(null)
   const [userId, setUserId] = useState<any>(null)
-  const [userName, setUserName] = useState('')
+  const [, setUserName] = useState('')
   const [productos, setProductos] = useState<any[]>([])
   const [cargando, setCargando] = useState(false)
   const [favoritos, setFavoritos] = useState<any[]>([])
@@ -1877,16 +1877,19 @@ export default function App() {
     <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', paddingBottom:100 }}>
       <link href={FONTS} rel="stylesheet" />
 
-      <div style={{ background:T.s1, padding:'14px 18px', borderBottom:'1px solid '+T.border, position:'sticky', top:0, zIndex:60 }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
-          <div>
-            <div style={{ fontFamily:"'Libre Baskerville',serif", fontSize:20, background:G, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', fontWeight:700 }}>Tu Changarro Libre</div>
-            <div style={{ fontSize:11, color:T.muted }}>Bienvenido, {userName}</div>
-          </div>
+      <div style={{ background:T.bg, padding:'18px 18px 12px', position:'sticky', top:0, zIndex:60 }}>
+        <div style={{ fontFamily:"'Libre Baskerville',serif", fontSize:17, background:G, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', fontWeight:700, marginBottom:14, letterSpacing:'0.01em' }}>
+          Tu Changarro Libre
         </div>
-        <input value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar productos o servicios..."
-          style={{ width:'100%', padding:'10px 16px', borderRadius:24, border:'1px solid '+T.border2, background:T.s2, color:T.text, fontSize:14, outline:'none', fontFamily:T.font, boxSizing:'border-box' }}
-        />
+        <div style={{ position:'relative' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', color:T.muted, pointerEvents:'none' }}>
+            <circle cx="11" cy="11" r="7" />
+            <path d="M21 21l-4.3-4.3" />
+          </svg>
+          <input value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar productos o servicios..."
+            style={{ width:'100%', padding:'11px 16px 11px 40px', borderRadius:14, border:'none', background:T.s2, color:T.text, fontSize:14, outline:'none', fontFamily:T.font, boxSizing:'border-box' }}
+          />
+        </div>
       </div>
 
       <div style={{ display:'flex', gap:24, padding:'0 18px', overflowX:'auto', borderBottom:'1px solid '+T.border }}>
