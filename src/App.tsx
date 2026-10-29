@@ -384,6 +384,60 @@ async function comprimirImagen(file: any, maxLado: number, calidad: number): Pro
   }
 }
 
+function ModalAccionesPub({ pub, onEditar, onVendido, onEliminar, onCerrar }: any) {
+  if (!pub) return null
+  const fila = (texto: string, onClick: any, color?: string) => (
+    <button onClick={onClick} style={{ width:'100%', padding:'16px 4px', background:'none', border:'none', borderBottom:'1px solid '+T.border, color: color || T.text, fontSize:15, fontWeight:500, textAlign:'left', cursor:'pointer', fontFamily:T.font }}>
+      {texto}
+    </button>
+  )
+  return (
+    <div onClick={onCerrar} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:100, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
+      <div onClick={(e:any)=>e.stopPropagation()} style={{ width:'100%', maxWidth:430, background:T.s1, borderRadius:'20px 20px 0 0', padding:'18px 22px calc(18px + env(safe-area-inset-bottom))', fontFamily:T.font, color:T.text, boxSizing:'border-box' }}>
+        <div style={{ fontSize:12, color:T.muted, marginBottom:4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{pub.titulo}</div>
+        {fila('Editar publicación', onEditar)}
+        {fila(pub.vendida ? 'Volver a publicar' : 'Marcar como vendido', onVendido)}
+        {fila('Eliminar', onEliminar, T.red)}
+        <button onClick={onCerrar} style={{ width:'100%', padding:'16px 4px 4px', background:'none', border:'none', color:T.muted, fontSize:14, fontWeight:600, textAlign:'center', cursor:'pointer', fontFamily:T.font }}>
+          Cancelar
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ModalEditarPub({ pub, titulo, setTitulo, precio, setPrecio, categoria, setCategoria, descripcion, setDescripcion, guardando, mensaje, onGuardar, onCerrar }: any) {
+  if (!pub) return null
+  const campo: any = { width:'100%', padding:'12px 14px', borderRadius:12, border:'1px solid '+T.border2, background:T.s2, color:T.text, fontSize:14, outline:'none', fontFamily:T.font, boxSizing:'border-box' }
+  const etiqueta: any = { fontSize:11, color:T.muted, letterSpacing:'0.1em', fontWeight:600, marginBottom:6, marginTop:14 }
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', zIndex:100, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+      <div style={{ width:'100%', maxWidth:390, maxHeight:'90vh', overflowY:'auto', background:T.s1, border:'1px solid '+T.border2, borderRadius:20, padding:'22px 20px', fontFamily:T.font, color:T.text, boxSizing:'border-box' }}>
+        <div style={{ fontSize:18, fontWeight:800 }}>Editar publicación</div>
+        <div style={etiqueta}>TÍTULO</div>
+        <input value={titulo} onChange={(e:any)=>setTitulo(e.target.value)} style={campo} />
+        <div style={etiqueta}>PRECIO</div>
+        <input value={precio} onChange={(e:any)=>setPrecio(e.target.value)} inputMode="decimal" style={campo} />
+        <div style={etiqueta}>CATEGORÍA</div>
+        <select value={categoria} onChange={(e:any)=>setCategoria(e.target.value)} style={campo}>
+          {CATEGORIAS.filter(c => c !== 'Todo').map(c => <option key={c} value={c}>{c==='Electronica' ? 'Electrónica' : c==='Vehiculos' ? 'Vehículos' : c}</option>)}
+        </select>
+        <div style={etiqueta}>DESCRIPCIÓN</div>
+        <textarea value={descripcion} onChange={(e:any)=>setDescripcion(e.target.value)} rows={4} style={{ ...campo, resize:'none' }} />
+        {mensaje && <p style={{ color:T.red, fontSize:13, margin:'12px 0 0' }}>{mensaje}</p>}
+        <div style={{ display:'flex', gap:10, marginTop:20 }}>
+          <button onClick={onCerrar} style={{ flex:1, padding:'12px', borderRadius:12, border:'1px solid '+T.border2, background:'transparent', color:T.text, fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:T.font }}>
+            Cancelar
+          </button>
+          <button onClick={onGuardar} disabled={guardando} style={{ flex:1, padding:'12px', borderRadius:12, border:'none', background:G, color:'#0a0a0a', fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:T.font }}>
+            {guardando ? 'Guardando...' : 'Guardar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function IconoPlay({ size = 16 }: any) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="#fff" style={{ display:'block' }}>
@@ -514,6 +568,7 @@ function DetalleProducto({ p, vendedor, esFav, esMio, onBack, onFav, onContactar
       <div style={{ padding:'22px 20px 0' }}>
         <div style={{ fontSize:28, fontWeight:700, color:T.text, letterSpacing:'-0.02em', lineHeight:1.1 }}>
           ${Number(p.precio).toLocaleString('es-AR')}
+          {p.vendida && <span style={{ marginLeft:12, fontSize:11, fontWeight:700, letterSpacing:'0.14em', color:T.muted, border:'1px solid '+T.border2, borderRadius:20, padding:'3px 10px', verticalAlign:'middle' }}>VENDIDO</span>}
         </div>
         <div style={{ fontSize:19, fontWeight:600, marginTop:8, lineHeight:1.3 }}>{p.titulo}</div>
         {ciudadTxt ? (
@@ -574,6 +629,10 @@ function DetalleProducto({ p, vendedor, esFav, esMio, onBack, onFav, onContactar
         {esMio ? (
           <div style={{ textAlign:'center', padding:'13px', borderRadius:14, background:T.s2, border:'1px solid '+T.border2, color:T.muted, fontSize:14, fontWeight:700 }}>
             Esta es tu publicacion
+          </div>
+        ) : p.vendida ? (
+          <div style={{ textAlign:'center', padding:'13px', borderRadius:14, background:T.s2, border:'1px solid '+T.border2, color:T.muted, fontSize:14, fontWeight:700 }}>
+            Esta publicación ya fue vendida
           </div>
         ) : (
           <GBtn full onClick={onContactar}>Contactar vendedor</GBtn>
@@ -816,6 +875,16 @@ export default function App() {
   const [sinLeer, setSinLeer] = useState(0)
   const [catActiva, setCatActiva] = useState('Todo')
   const [busqueda, setBusqueda] = useState('')
+  const [filtroCiudad, setFiltroCiudad] = useState('')
+  const [menuPub, setMenuPub] = useState<any>(null)
+  const [editPub, setEditPub] = useState<any>(null)
+  const [pubEditTitulo, setPubEditTitulo] = useState('')
+  const [pubEditPrecio, setPubEditPrecio] = useState('')
+  const [pubEditCategoria, setPubEditCategoria] = useState('Electronica')
+  const [pubEditDescripcion, setPubEditDescripcion] = useState('')
+  const [guardandoPubEdit, setGuardandoPubEdit] = useState(false)
+  const [mensajePubEdit, setMensajePubEdit] = useState('')
+  const [orden, setOrden] = useState('recientes')
   const [chatProducto, setChatProducto] = useState<any>(null)
   const [chatOtroUsuario, setChatOtroUsuario] = useState<any>(null)
   const [chatOtroNombre, setChatOtroNombre] = useState('')
@@ -1175,6 +1244,43 @@ export default function App() {
     if (!resPublicaciones.error) setMisPublicaciones(resPublicaciones.data)
   }
 
+  function abrirEditarPub(p: any) {
+    setMenuPub(null)
+    setEditPub(p)
+    setPubEditTitulo(p.titulo || '')
+    setPubEditPrecio(String(p.precio ?? ''))
+    setPubEditCategoria(p.categoria || 'Electronica')
+    setPubEditDescripcion(p.descripcion || '')
+    setMensajePubEdit('')
+  }
+
+  async function guardarEdicionPub() {
+    if (!editPub) return
+    const tituloLimpio = pubEditTitulo.trim()
+    const precioNum = Number(pubEditPrecio)
+    if (!tituloLimpio) { setMensajePubEdit('Poné un título'); return }
+    if (!pubEditPrecio || isNaN(precioNum) || precioNum < 0) { setMensajePubEdit('Revisá el precio'); return }
+    setGuardandoPubEdit(true)
+    setMensajePubEdit('')
+    const res = await supabase.rpc('editar_publicacion', {
+      p_id: String(editPub.id), p_titulo: tituloLimpio, p_precio: precioNum,
+      p_categoria: pubEditCategoria, p_descripcion: pubEditDescripcion.trim()
+    })
+    setGuardandoPubEdit(false)
+    if (res.error) { setMensajePubEdit('Error: ' + res.error.message); return }
+    setEditPub(null)
+    await abrirPerfil()
+    cargarProductos()
+  }
+
+  async function alternarVendida(p: any) {
+    setMenuPub(null)
+    const res = await supabase.rpc('marcar_publicacion_vendida', { p_id: String(p.id), p_vendida: !p.vendida })
+    if (res.error) { window.alert('No se pudo actualizar: ' + res.error.message); return }
+    await abrirPerfil()
+    cargarProductos()
+  }
+
   async function eliminarPublicacion(pubId: any) {
     if (!window.confirm('Eliminar esta publicacion? No se puede deshacer.')) return
     const res = await supabase.from('publicaciones').delete().eq('id', pubId)
@@ -1297,8 +1403,23 @@ export default function App() {
   const productosFiltrados = productos.filter(p => {
     const matchCat = catActiva === 'Todo' || p.categoria === catActiva
     const matchBus = p.titulo.toLowerCase().includes(busqueda.toLowerCase())
-    return matchCat && matchBus && !bloqueados.includes(p.vendedor_id)
+    const matchCiudad = !filtroCiudad || p.ubicacion_vendedor === filtroCiudad
+    return matchCat && matchBus && matchCiudad && !p.vendida && !bloqueados.includes(p.vendedor_id)
+  }).sort((a:any, b:any) => {
+    if (orden === 'menor') return Number(a.precio) - Number(b.precio)
+    if (orden === 'mayor') return Number(b.precio) - Number(a.precio)
+    return new Date(b.fecha_publicacion).getTime() - new Date(a.fecha_publicacion).getTime()
   })
+
+  const ciudadesDisponibles: string[] = Array.from(new Set(productos.map((p:any) => p.ubicacion_vendedor).filter(Boolean))).sort() as string[]
+  const hayFiltros = !!(filtroCiudad || busqueda || catActiva !== 'Todo')
+
+  function limpiarFiltros() {
+    setFiltroCiudad('')
+    setBusqueda('')
+    setCatActiva('Todo')
+    setOrden('recientes')
+  }
 
   const vistasTotales = misPublicaciones.reduce((acc:any, p:any) => acc + (p.vistas || 0), 0)
 
@@ -1852,14 +1973,19 @@ export default function App() {
                     <div style={{ position:'absolute', top:8, left:8, background:'rgba(0,0,0,0.55)', color:'#fff', fontSize:10, fontWeight:600, padding:'3px 8px', borderRadius:20 }}>
                       {p.vistas || 0} vistas
                     </div>
+                    {p.vendida && (
+                      <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.55)', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:12, fontWeight:700, letterSpacing:'0.18em' }}>
+                        VENDIDO
+                      </div>
+                    )}
                   </div>
                   <div style={{ padding:'8px 2px 0' }}>
                     <div style={{ fontWeight:500, fontSize:13, lineHeight:1.3, color:T.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.titulo}</div>
                     <div style={{ color:T.text, fontWeight:700, fontSize:15, marginTop:3 }}>${Number(p.precio).toLocaleString()}</div>
                     <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:3 }}>
                       <span style={{ fontSize:10, color:T.muted }}>{tiempoTranscurrido(p.fecha_publicacion)}</span>
-                      <button onClick={(e:any)=>{ e.stopPropagation(); eliminarPublicacion(p.id) }} style={{ background:'none', border:'none', color:T.muted, fontSize:11, cursor:'pointer', padding:'4px 0 4px 8px', fontFamily:T.font }}>
-                        Eliminar
+                      <button onClick={(e:any)=>{ e.stopPropagation(); setMenuPub(p) }} style={{ background:'none', border:'none', color:T.sub, fontSize:20, lineHeight:1, cursor:'pointer', padding:'2px 0 2px 12px', fontFamily:T.font }}>
+                        ⋯
                       </button>
                     </div>
                   </div>
@@ -1868,6 +1994,22 @@ export default function App() {
             </div>
           </div>
         )}
+        <ModalAccionesPub
+          pub={menuPub}
+          onEditar={()=>abrirEditarPub(menuPub)}
+          onVendido={()=>alternarVendida(menuPub)}
+          onEliminar={()=>{ const id = menuPub.id; setMenuPub(null); eliminarPublicacion(id) }}
+          onCerrar={()=>setMenuPub(null)}
+        />
+        <ModalEditarPub
+          pub={editPub}
+          titulo={pubEditTitulo} setTitulo={setPubEditTitulo}
+          precio={pubEditPrecio} setPrecio={setPubEditPrecio}
+          categoria={pubEditCategoria} setCategoria={setPubEditCategoria}
+          descripcion={pubEditDescripcion} setDescripcion={setPubEditDescripcion}
+          guardando={guardandoPubEdit} mensaje={mensajePubEdit}
+          onGuardar={guardarEdicionPub} onCerrar={()=>setEditPub(null)}
+        />
         <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} abrirBandejaMensajes={abrirBandejaMensajes} sinLeer={sinLeer} />
       </div>
     )
@@ -1904,7 +2046,18 @@ export default function App() {
         ))}
       </div>
 
-      <div style={{ padding:'18px 18px 20px' }}>
+      <div style={{ padding:'16px 18px 20px' }}>
+        <div style={{ display:'flex', gap:8, marginBottom:18 }}>
+          <select value={filtroCiudad} onChange={e=>setFiltroCiudad(e.target.value)} style={{ flex:1, minWidth:0, padding:'10px 12px', borderRadius:12, border:'none', background:T.s2, color:T.text, fontSize:12, fontWeight:500, outline:'none', fontFamily:T.font }}>
+            <option value="">Todas las ciudades</option>
+            {ciudadesDisponibles.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select value={orden} onChange={e=>setOrden(e.target.value)} style={{ flex:1, minWidth:0, padding:'10px 12px', borderRadius:12, border:'none', background:T.s2, color:T.text, fontSize:12, fontWeight:500, outline:'none', fontFamily:T.font }}>
+            <option value="recientes">Más recientes</option>
+            <option value="menor">Menor precio</option>
+            <option value="mayor">Mayor precio</option>
+          </select>
+        </div>
         <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', marginBottom:14, fontWeight:600 }}>
           {productosFiltrados.length} {catActiva==='Servicios' ? 'SERVICIOS' : 'PRODUCTOS'}{(catActiva!=='Todo' && catActiva!=='Servicios') ? ' EN '+catActiva.toUpperCase() : ''}
         </div>
@@ -1914,8 +2067,13 @@ export default function App() {
         {!cargando&&productosFiltrados.length===0&&(
           <div style={{ textAlign:'center', padding:'60px 20px', color:T.muted }}>
             <div style={{ fontSize:40, marginBottom:12, color:T.gold, fontWeight:'bold' }}>TCL</div>
-            <div style={{ fontSize:16, fontWeight:700, marginBottom:8 }}>No hay productos todavia</div>
-            <div style={{ fontSize:13 }}>Se el primero en publicar</div>
+            <div style={{ fontSize:16, fontWeight:700, marginBottom:8 }}>{hayFiltros ? 'No encontramos resultados' : 'No hay productos todavia'}</div>
+            <div style={{ fontSize:13 }}>{hayFiltros ? 'Probá cambiando los filtros o la búsqueda' : 'Se el primero en publicar'}</div>
+            {hayFiltros && (
+              <button onClick={limpiarFiltros} style={{ marginTop:18, background:'none', border:'1px solid '+T.border2, color:T.text, borderRadius:20, padding:'9px 20px', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:T.font }}>
+                Limpiar filtros
+              </button>
+            )}
           </div>
         )}
 
