@@ -438,6 +438,46 @@ function ModalEditarPub({ pub, titulo, setTitulo, precio, setPrecio, categoria, 
   )
 }
 
+function Estrellas({ valor, size = 14, onElegir }: any) {
+  return (
+    <div style={{ display:'flex', gap: onElegir ? 10 : 2 }}>
+      {[1, 2, 3, 4, 5].map(n => (
+        <svg key={n} onClick={onElegir ? () => onElegir(n) : undefined} width={size} height={size} viewBox="0 0 24 24"
+          fill={n <= valor ? T.gold : 'none'} stroke={n <= valor ? T.gold : T.muted} strokeWidth={1.8} strokeLinejoin="round"
+          style={{ cursor: onElegir ? 'pointer' : 'default', flexShrink:0 }}>
+          <path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4 6.1 20.5l1.2-6.5L2.5 9.4l6.6-.9z" />
+        </svg>
+      ))}
+    </div>
+  )
+}
+
+function ModalResena({ abierto, nombre, estrellas, setEstrellas, comentario, setComentario, enviando, mensaje, onEnviar, onCerrar }: any) {
+  if (!abierto) return null
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', zIndex:100, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+      <div style={{ width:'100%', maxWidth:390, background:T.s1, border:'1px solid '+T.border2, borderRadius:20, padding:'22px 20px', fontFamily:T.font, color:T.text, boxSizing:'border-box' }}>
+        <div style={{ fontSize:18, fontWeight:800, marginBottom:4 }}>Reseña para {nombre}</div>
+        <div style={{ fontSize:12, color:T.muted, marginBottom:18 }}>Contá cómo fue tu experiencia.</div>
+        <div style={{ display:'flex', justifyContent:'center', marginBottom:18 }}>
+          <Estrellas valor={estrellas} size={34} onElegir={setEstrellas} />
+        </div>
+        <textarea value={comentario} onChange={(e:any)=>setComentario(e.target.value)} maxLength={300} rows={4} placeholder="Comentario (opcional)"
+          style={{ width:'100%', padding:'12px 14px', borderRadius:12, border:'1px solid '+T.border2, background:T.s2, color:T.text, fontSize:14, outline:'none', fontFamily:T.font, boxSizing:'border-box', resize:'none' }} />
+        {mensaje && <p style={{ color:T.red, fontSize:13, margin:'12px 0 0' }}>{mensaje}</p>}
+        <div style={{ display:'flex', gap:10, marginTop:18 }}>
+          <button onClick={onCerrar} style={{ flex:1, padding:'12px', borderRadius:12, border:'1px solid '+T.border2, background:'transparent', color:T.text, fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:T.font }}>
+            Cancelar
+          </button>
+          <button onClick={onEnviar} disabled={enviando} style={{ flex:1, padding:'12px', borderRadius:12, border:'none', background:G, color:'#0a0a0a', fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:T.font }}>
+            {enviando ? 'Enviando...' : 'Publicar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function IconoPlay({ size = 16 }: any) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="#fff" style={{ display:'block' }}>
@@ -463,7 +503,7 @@ function IconoAtras({ size = 22 }: any) {
   )
 }
 
-function DetalleProducto({ p, vendedor, esFav, esMio, onBack, onFav, onContactar, onReportar, onBloquear, modales }: any) {
+function DetalleProducto({ p, vendedor, esFav, esMio, onBack, onFav, onContactar, onReportar, onBloquear, onVerVendedor, modales }: any) {
   const [idx, setIdx] = useState(0)
   const [menu, setMenu] = useState(false)
   const [verMas, setVerMas] = useState(false)
@@ -601,7 +641,7 @@ function DetalleProducto({ p, vendedor, esFav, esMio, onBack, onFav, onContactar
         <div style={{ height:1, background:T.border, margin:'24px 0' }} />
 
         {vendedor ? (
-          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+          <div onClick={onVerVendedor} style={{ display:'flex', alignItems:'center', gap:12, cursor:'pointer' }}>
             {vendedor.avatar_url
               ? <img src={vendedor.avatar_url} style={{ width:44, height:44, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} />
               : <div style={{ width:44, height:44, borderRadius:'50%', background:G, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, fontWeight:800, color:'#0a0a0a', flexShrink:0 }}>
@@ -615,6 +655,7 @@ function DetalleProducto({ p, vendedor, esFav, esMio, onBack, onFav, onContactar
             <div style={{ fontSize:11, fontWeight:700, color:colorNivel, border:'1px solid '+colorNivel, borderRadius:20, padding:'3px 10px', flexShrink:0 }}>
               {nivel}
             </div>
+            <span style={{ color:T.muted, fontSize:16 }}>{'>'}</span>
           </div>
         ) : (
           <div style={{ fontSize:12, color:T.muted }}>Cargando vendedor...</div>
@@ -877,6 +918,15 @@ export default function App() {
   const [busqueda, setBusqueda] = useState('')
   const [filtroCiudad, setFiltroCiudad] = useState('')
   const [menuPub, setMenuPub] = useState<any>(null)
+  const [vendPerfil, setVendPerfil] = useState<any>(null)
+  const [vendPubs, setVendPubs] = useState<any[]>([])
+  const [vendResenas, setVendResenas] = useState<any[]>([])
+  const [cargandoVend, setCargandoVend] = useState(false)
+  const [resenaAbierta, setResenaAbierta] = useState(false)
+  const [resenaEstrellas, setResenaEstrellas] = useState(0)
+  const [resenaTexto, setResenaTexto] = useState('')
+  const [enviandoResena, setEnviandoResena] = useState(false)
+  const [mensajeResena, setMensajeResena] = useState('')
   const [editPub, setEditPub] = useState<any>(null)
   const [pubEditTitulo, setPubEditTitulo] = useState('')
   const [pubEditPrecio, setPubEditPrecio] = useState('')
@@ -1244,6 +1294,57 @@ export default function App() {
     if (!resPublicaciones.error) setMisPublicaciones(resPublicaciones.data)
   }
 
+  async function abrirVendedor(id: any) {
+    setVendPerfil(null)
+    setVendPubs([])
+    setVendResenas([])
+    setCargandoVend(true)
+    setVista('vendedor')
+    const [rU, rP, rR] = await Promise.all([
+      supabase.from('usuarios').select('id,nombre,ciudad,provincia,nivel_reputacion,avatar_url,cantidad_ventas').eq('id', id).maybeSingle(),
+      supabase.from('publicaciones').select('*').eq('vendedor_id', id).order('fecha_publicacion', { ascending: false }),
+      supabase.from('resenas').select('*').eq('vendedor_id', String(id)).order('fecha', { ascending: false }).limit(100)
+    ])
+    const usuario: any = rU.data
+    const ciudad = usuario ? (usuario.ciudad || usuario.provincia || '') : ''
+    setVendPerfil(usuario)
+    setVendPubs((rP.data || []).filter((x:any) => !x.vendida).map((x:any) => ({ ...x, ubicacion_vendedor: ciudad })))
+    let resenas: any[] = rR.error ? [] : (rR.data || [])
+    const ids = Array.from(new Set(resenas.map((r:any) => r.autor_id)))
+    const mapa: any = {}
+    if (ids.length > 0) {
+      const rA = await supabase.from('usuarios').select('id,nombre').in('id', ids)
+      if (!rA.error && rA.data) rA.data.forEach((u:any) => { mapa[String(u.id)] = u.nombre })
+    }
+    resenas = resenas.map((r:any) => ({ ...r, autor_nombre: mapa[String(r.autor_id)] || 'Usuario' }))
+    setVendResenas(resenas)
+    setCargandoVend(false)
+  }
+
+  function abrirModalResena() {
+    const mia = vendResenas.find((r:any) => String(r.autor_id) === String(userId))
+    setResenaEstrellas(mia ? mia.estrellas : 0)
+    setResenaTexto(mia ? (mia.comentario || '') : '')
+    setMensajeResena('')
+    setResenaAbierta(true)
+  }
+
+  async function enviarResena() {
+    if (!vendPerfil) return
+    if (resenaEstrellas < 1) { setMensajeResena('Elegí de 1 a 5 estrellas'); return }
+    setEnviandoResena(true)
+    setMensajeResena('')
+    const res = await supabase.rpc('dejar_resena', { p_vendedor: String(vendPerfil.id), p_estrellas: resenaEstrellas, p_comentario: resenaTexto.trim() })
+    setEnviandoResena(false)
+    if (res.error) {
+      const m = res.error.message || ''
+      setMensajeResena(m.indexOf('contacto') !== -1 ? 'Para dejar una reseña tenés que haber hablado antes con este vendedor.' : 'No se pudo enviar: ' + m)
+      return
+    }
+    setResenaAbierta(false)
+    abrirVendedor(vendPerfil.id)
+  }
+
   function abrirEditarPub(p: any) {
     setMenuPub(null)
     setEditPub(p)
@@ -1524,8 +1625,130 @@ export default function App() {
         onContactar={()=>abrirChat(p, p.vendedor_id, 'detalle', detalleVendedor?.nombre || '')}
         onReportar={()=>abrirReporte({ publicacionId:p.id, usuarioId:p.vendedor_id, nombre:p.titulo })}
         onBloquear={()=>setBloqueoObjetivo({ usuarioId:p.vendedor_id, nombre: detalleVendedor?.nombre || 'este vendedor' })}
+        onVerVendedor={()=>abrirVendedor(p.vendedor_id)}
         modales={modales}
       />
+    )
+  }
+
+  if (vista === 'vendedor') {
+    const resenasVisibles = vendResenas.filter((r:any) => !bloqueados.map(String).includes(String(r.autor_id)))
+    const promedio = resenasVisibles.length > 0 ? resenasVisibles.reduce((a:number, r:any) => a + r.estrellas, 0) / resenasVisibles.length : 0
+    const esPropio = !!vendPerfil && String(vendPerfil.id) === String(userId)
+    const ubic = vendPerfil ? [vendPerfil.ciudad, vendPerfil.provincia].filter(Boolean).join(', ') : ''
+    const nivelV = (vendPerfil && vendPerfil.nivel_reputacion) ? vendPerfil.nivel_reputacion : 'Nuevo'
+    const inicial = vendPerfil ? (vendPerfil.nombre || '?').charAt(0).toUpperCase() : '?'
+    const etiquetaSec: any = { fontSize:11, color:T.muted, letterSpacing:'0.14em', marginBottom:14, fontWeight:600 }
+
+    return (
+      <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, width:'100vw', maxWidth:430, boxSizing:'border-box', overflowX:'hidden', margin:'0 auto', paddingBottom:50 }}>
+        <link href={FONTS} rel="stylesheet" />
+
+        <div style={{ position:'relative', height:112, background: PORTADA_ELEGIDA ? T.s2 : 'linear-gradient(160deg,'+T.s2+','+T.s1+')', overflow:'hidden' }}>
+          {PORTADA_ELEGIDA
+            ? <img src={PORTADA_ELEGIDA} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
+            : <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:T.serif, fontSize:13, letterSpacing:'0.3em', color:T.muted, textTransform:'uppercase' }}>
+                Tu Changarro Libre
+              </div>
+          }
+          <button onClick={()=>setVista(detalleProducto ? 'detalle' : 'home')} style={{ position:'absolute', top:14, left:14, width:36, height:36, borderRadius:'50%', background:'rgba(0,0,0,0.45)', border:'none', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', padding:0 }}>
+            <IconoAtras size={20} />
+          </button>
+        </div>
+
+        {cargandoVend && <p style={{ color:T.muted, textAlign:'center', padding:40 }}>Cargando perfil...</p>}
+        {!cargandoVend && !vendPerfil && <p style={{ color:T.muted, textAlign:'center', padding:40 }}>No se pudo cargar este perfil.</p>}
+
+        {!cargandoVend && vendPerfil && (
+          <div style={{ padding:'0 22px 20px' }}>
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', textAlign:'center' }}>
+              <div style={{ position:'relative', zIndex:2, marginTop:-40, width:88, height:88, boxSizing:'content-box', border:'4px solid '+T.bg, borderRadius:'50%', background:T.bg, overflow:'hidden', flexShrink:0 }}>
+                {vendPerfil.avatar_url
+                  ? <img src={vendPerfil.avatar_url} alt="" style={{ width:88, height:88, objectFit:'cover', display:'block' }} />
+                  : <div style={{ width:88, height:88, background:T.s3, display:'flex', alignItems:'center', justifyContent:'center', fontSize:32, fontWeight:700, color:T.sub, lineHeight:1 }}>{inicial}</div>
+                }
+              </div>
+              <div style={{ fontSize:22, fontWeight:700, marginTop:12, letterSpacing:'-0.01em' }}>{vendPerfil.nombre}</div>
+              {ubic ? <div style={{ fontSize:13, color:T.muted, marginTop:4 }}>{ubic}</div> : null}
+              <div style={{ fontSize:12, color:T.sub, marginTop:8 }}>Nivel {nivelV}</div>
+              <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:12 }}>
+                {resenasVisibles.length > 0 ? (
+                  <>
+                    <Estrellas valor={Math.round(promedio)} size={15} />
+                    <span style={{ fontSize:13, fontWeight:600 }}>{promedio.toFixed(1).replace('.', ',')}</span>
+                    <span style={{ fontSize:12, color:T.muted }}>({resenasVisibles.length})</span>
+                  </>
+                ) : (
+                  <span style={{ fontSize:12, color:T.muted }}>Todavía sin reseñas</span>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display:'flex', margin:'24px 0 20px', borderTop:'1px solid '+T.border, borderBottom:'1px solid '+T.border, padding:'16px 0' }}>
+              <div style={{ flex:1, textAlign:'center', borderRight:'1px solid '+T.border }}>
+                <div style={{ fontSize:20, fontWeight:700 }}>{vendPubs.length}</div>
+                <div style={{ fontSize:11, color:T.muted, marginTop:3 }}>Publicados</div>
+              </div>
+              <div style={{ flex:1, textAlign:'center' }}>
+                <div style={{ fontSize:20, fontWeight:700 }}>{vendPerfil.cantidad_ventas || 0}</div>
+                <div style={{ fontSize:11, color:T.muted, marginTop:3 }}>Vendidos</div>
+              </div>
+            </div>
+
+            {!esPropio && (
+              <button onClick={abrirModalResena} style={{ width:'100%', padding:'12px', borderRadius:14, border:'1px solid '+T.border2, background:'transparent', color:T.text, fontWeight:600, fontSize:14, cursor:'pointer', fontFamily:T.font, marginBottom:26 }}>
+                {vendResenas.some((r:any) => String(r.autor_id) === String(userId)) ? 'Editar mi reseña' : 'Dejar una reseña'}
+              </button>
+            )}
+
+            {resenasVisibles.length > 0 && (
+              <div style={{ marginBottom:28 }}>
+                <div style={etiquetaSec}>RESEÑAS</div>
+                {resenasVisibles.slice(0, 20).map((r:any) => (
+                  <div key={r.id} style={{ padding:'14px 0', borderBottom:'1px solid '+T.border }}>
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}>
+                      <div style={{ fontWeight:600, fontSize:13, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.autor_nombre}</div>
+                      <div style={{ fontSize:11, color:T.muted, flexShrink:0 }}>{tiempoTranscurrido(r.fecha)}</div>
+                    </div>
+                    <div style={{ marginTop:6 }}><Estrellas valor={r.estrellas} size={12} /></div>
+                    {r.comentario ? <div style={{ fontSize:13, color:T.sub, lineHeight:1.55, marginTop:8, whiteSpace:'pre-wrap' }}>{r.comentario}</div> : null}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={etiquetaSec}>PUBLICACIONES</div>
+            {vendPubs.length === 0 && (
+              <div style={{ textAlign:'center', padding:'30px 20px', color:T.muted, fontSize:13 }}>No tiene publicaciones activas</div>
+            )}
+            <div style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr)', gap:'20px 12px' }}>
+              {vendPubs.map((x:any) => (
+                <div key={x.id} onClick={()=>abrirDetalle(x, 'vendedor')} style={{ cursor:'pointer', minWidth:0 }}>
+                  <div style={{ position:'relative', borderRadius:14, overflow:'hidden', background:T.s2 }}>
+                    {x.foto_url
+                      ? <img src={x.foto_url} alt={x.titulo} loading="lazy" decoding="async" style={{ width:'100%', aspectRatio:'1 / 1', objectFit:'cover', display:'block' }} />
+                      : <div style={{ width:'100%', aspectRatio:'1 / 1', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, color:T.muted, fontWeight:600, letterSpacing:'0.08em', textAlign:'center', padding:6, boxSizing:'border-box' }}>{x.categoria?.toUpperCase()}</div>
+                    }
+                  </div>
+                  <div style={{ padding:'8px 2px 0' }}>
+                    <div style={{ fontWeight:500, fontSize:13, lineHeight:1.3, color:T.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{x.titulo}</div>
+                    <div style={{ color:T.text, fontWeight:700, fontSize:15, marginTop:3 }}>${Number(x.precio).toLocaleString('es-AR')}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <ModalResena
+          abierto={resenaAbierta}
+          nombre={vendPerfil ? vendPerfil.nombre : ''}
+          estrellas={resenaEstrellas} setEstrellas={setResenaEstrellas}
+          comentario={resenaTexto} setComentario={setResenaTexto}
+          enviando={enviandoResena} mensaje={mensajeResena}
+          onEnviar={enviarResena} onCerrar={()=>setResenaAbierta(false)}
+        />
+      </div>
     )
   }
 
@@ -2059,7 +2282,7 @@ export default function App() {
           </select>
         </div>
         <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', marginBottom:14, fontWeight:600 }}>
-          {productosFiltrados.length} {catActiva==='Servicios' ? 'SERVICIOS' : 'PRODUCTOS'}{(catActiva!=='Todo' && catActiva!=='Servicios') ? ' EN '+catActiva.toUpperCase() : ''}
+        {productosFiltrados.length} {catActiva==='Servicios' ? 'SERVICIOS' : 'PRODUCTOS'}{(catActiva!=='Todo' && catActiva!=='Servicios') ? ' EN '+catActiva.toUpperCase() : ''}
         </div>
 
         {cargando&&<p style={{ color:T.muted, textAlign:'center', padding:40 }}>Cargando productos...</p>}
