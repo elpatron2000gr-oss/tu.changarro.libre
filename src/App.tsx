@@ -11,6 +11,12 @@ const REDIRECT_URL = window.location.origin
 // Detecta si la persona llego desde el link de recuperacion (antes de que Supabase limpie la direccion)
 const LLEGO_DE_RECUPERACION = window.location.hash.indexOf('type=recovery') !== -1
 
+// Direccion publica de la app (la que se comparte por WhatsApp)
+const URL_APP = 'https://tu-changarro-libre-tuchangarrolibre.vercel.app'
+
+// Si alguien llega desde un link compartido (?p=numero), lo guardamos para abrir esa publicacion
+const PUB_COMPARTIDA = new URLSearchParams(window.location.search).get('p')
+
 // Portadas del perfil. Cuando tengas las imagenes de la app, pega sus direcciones aca adentro,
 // entre comillas y separadas por coma. Se elige una al azar. Vacio = portada simple con el nombre.
 const PORTADAS: string[] = []
@@ -478,6 +484,16 @@ function ModalResena({ abierto, nombre, estrellas, setEstrellas, comentario, set
   )
 }
 
+function IconoCompartir({ size = 20 }: any) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7" />
+      <path d="M16 6l-4-4-4 4" />
+      <path d="M12 2v13" />
+    </svg>
+  )
+}
+
 function IconoPlay({ size = 16 }: any) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="#fff" style={{ display:'block' }}>
@@ -503,7 +519,7 @@ function IconoAtras({ size = 22 }: any) {
   )
 }
 
-function DetalleProducto({ p, vendedor, esFav, esMio, onBack, onFav, onContactar, onReportar, onBloquear, onVerVendedor, modales }: any) {
+function DetalleProducto({ p, vendedor, esFav, esMio, onBack, onFav, onContactar, onReportar, onBloquear, onVerVendedor, onCompartir, modales }: any) {
   const [idx, setIdx] = useState(0)
   const [menu, setMenu] = useState(false)
   const [verMas, setVerMas] = useState(false)
@@ -562,16 +578,21 @@ function DetalleProducto({ p, vendedor, esFav, esMio, onBack, onFav, onContactar
           <button onClick={onBack} style={botonCirculo}>
             <IconoAtras />
           </button>
-          {!esMio && (
-            <div style={{ display:'flex', gap:10 }}>
-              <button onClick={onFav} style={botonCirculo}>
-                <IconoCorazon activo={esFav} />
-              </button>
-              <button onClick={()=>setMenu(!menu)} style={{ ...botonCirculo, color:'#fff', fontSize:20, fontWeight:'bold', lineHeight:1 }}>
-                ⋯
-              </button>
-            </div>
-          )}
+          <div style={{ display:'flex', gap:10 }}>
+            <button onClick={onCompartir} style={botonCirculo}>
+              <IconoCompartir />
+            </button>
+            {!esMio && (
+              <>
+                <button onClick={onFav} style={botonCirculo}>
+                  <IconoCorazon activo={esFav} />
+                </button>
+                <button onClick={()=>setMenu(!menu)} style={{ ...botonCirculo, color:'#fff', fontSize:20, fontWeight:'bold', lineHeight:1 }}>
+                  ⋯
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {menu && (
@@ -918,6 +939,7 @@ export default function App() {
   const [busqueda, setBusqueda] = useState('')
   const [filtroCiudad, setFiltroCiudad] = useState('')
   const [menuPub, setMenuPub] = useState<any>(null)
+  const [pubCompartida, setPubCompartida] = useState<string | null>(PUB_COMPARTIDA)
   const [vendPerfil, setVendPerfil] = useState<any>(null)
   const [vendPubs, setVendPubs] = useState<any[]>([])
   const [vendResenas, setVendResenas] = useState<any[]>([])
@@ -1022,6 +1044,27 @@ export default function App() {
   useEffect(() => {
     if (userId) cargarSinLeer(userId)
   }, [userId, vista])
+
+  useEffect(() => {
+    if (!userId || !pubCompartida) return
+    const id = pubCompartida
+    setPubCompartida(null)
+    window.history.replaceState({}, '', window.location.pathname + window.location.hash)
+    supabase.from('publicaciones').select('*').eq('id', id).maybeSingle().then(async (res: any) => {
+      if (res.error || !res.data) { window.alert('Esta publicación ya no está disponible.'); return }
+      const pub = res.data
+      const rU = await supabase.from('usuarios').select('ciudad,provincia').eq('id', pub.vendedor_id).maybeSingle()
+      pub.ubicacion_vendedor = rU.data ? (rU.data.ciudad || rU.data.provincia || '') : ''
+      abrirDetalle(pub, 'home')
+    })
+  }, [userId])
+
+  function compartirPublicacion(pub: any, vend: any) {
+    const ciudad = (vend && (vend.ciudad || vend.provincia)) || pub.ubicacion_vendedor || ''
+    const link = URL_APP + '/?p=' + pub.id
+    const texto = pub.titulo + ' - $' + Number(pub.precio).toLocaleString('es-AR') + (ciudad ? ' - ' + ciudad : '') + '\nMirala en Tu Changarro Libre: ' + link
+    window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank')
+  }
 
   async function cargarSinLeer(uid?: any) {
     const id = uid || userId
@@ -1626,6 +1669,7 @@ export default function App() {
         onReportar={()=>abrirReporte({ publicacionId:p.id, usuarioId:p.vendedor_id, nombre:p.titulo })}
         onBloquear={()=>setBloqueoObjetivo({ usuarioId:p.vendedor_id, nombre: detalleVendedor?.nombre || 'este vendedor' })}
         onVerVendedor={()=>abrirVendedor(p.vendedor_id)}
+        onCompartir={()=>compartirPublicacion(p, detalleVendedor)}
         modales={modales}
       />
     )
@@ -2282,7 +2326,7 @@ export default function App() {
           </select>
         </div>
         <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', marginBottom:14, fontWeight:600 }}>
-        {productosFiltrados.length} {catActiva==='Servicios' ? 'SERVICIOS' : 'PRODUCTOS'}{(catActiva!=='Todo' && catActiva!=='Servicios') ? ' EN '+catActiva.toUpperCase() : ''}
+          {productosFiltrados.length} {catActiva==='Servicios' ? 'SERVICIOS' : 'PRODUCTOS'}{(catActiva!=='Todo' && catActiva!=='Servicios') ? ' EN '+catActiva.toUpperCase() : ''}
         </div>
 
         {cargando&&<p style={{ color:T.muted, textAlign:'center', padding:40 }}>Cargando productos...</p>}
