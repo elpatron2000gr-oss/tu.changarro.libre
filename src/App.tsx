@@ -136,55 +136,35 @@ function GBtn({ children, onClick, disabled, full, grad }: any) {
   )
 }
 
-function Toggle({ label, sub, value, onChange }: any) {
+
+function InfoRow({ label, value }: any) {
   return (
-    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'14px 0', borderBottom:'1px solid '+T.border }}>
-      <div>
-        <div style={{ fontSize:14, fontWeight:700, color:T.text }}>{label}</div>
-        {sub && <div style={{ fontSize:12, color:T.muted, marginTop:2 }}>{sub}</div>}
-      </div>
-      <button onClick={onChange} style={{
-        width:48, height:28, borderRadius:20, border:'1px solid '+T.border2,
-        background: value ? G : T.s3, position:'relative', cursor:'pointer', flexShrink:0
-      }}>
-        <div style={{
-          width:20, height:20, borderRadius:'50%', background: value ? '#0a0a0a' : T.muted,
-          position:'absolute', top:3, left: value ? 24 : 3, transition:'left 0.2s ease'
-        }} />
-      </button>
+    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'15px 0', borderBottom:'1px solid '+T.border }}>
+      <span style={{ fontSize:14, fontWeight:500 }}>{label}</span>
+      <span style={{ fontSize:13, color:T.muted }}>{value}</span>
     </div>
   )
 }
 
-function InfoRow({ label, value, sub }: any) {
-  return (
-    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', padding:'10px 0', borderBottom:'1px solid '+T.border }}>
-      <span style={{ color:T.muted, fontSize:13 }}>{label}</span>
-      <div style={{ textAlign:'right' }}>
-        <div style={{ fontSize:13, fontWeight:600 }}>{value}</div>
-        {sub && <div style={{ fontSize:11, color:T.muted, marginTop:2 }}>{sub}</div>}
-      </div>
-    </div>
-  )
-}
-
-function LinkRow({ label, value, onClick }: any) {
+function LinkRow({ label, value, onClick, destacado }: any) {
   return (
     <button onClick={onClick} style={{
       width:'100%', display:'flex', justifyContent:'space-between', alignItems:'center',
-      padding:'12px 0', background:'none', border:'none', borderBottom:'1px solid '+T.border,
-      cursor:'pointer', fontFamily:T.font, color:T.text, textAlign:'left'
+      padding:'15px 0', background:'none', border:'none', borderBottom:'1px solid '+T.border,
+      cursor:'pointer', fontFamily:T.font, color: destacado ? T.red : T.text, textAlign:'left'
     }}>
-      <span style={{ color:T.muted, fontSize:13 }}>{label}</span>
-      <span style={{ fontSize:13, fontWeight:700, color:T.gold }}>{value ? value + ' ' : ''}→</span>
+      <span style={{ fontSize:14, fontWeight:500 }}>{label}</span>
+      <span style={{ fontSize:13, color:T.muted }}>{value ? value + '  ' : ''}{destacado ? '' : '>'}</span>
     </button>
   )
 }
 
 function BackBtn({ onClick }: any) {
   return (
-    <button onClick={onClick} style={{ background:'none', border:'none', color:T.gold, cursor:'pointer', fontSize:22, fontWeight:'bold', padding:0, lineHeight:1, width:28 }}>
-      ←
+    <button onClick={onClick} style={{ background:'none', border:'none', cursor:'pointer', padding:0, width:32, height:32, display:'flex', alignItems:'center', color:T.text }}>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M15 18l-6-6 6-6" />
+      </svg>
     </button>
   )
 }
@@ -939,6 +919,7 @@ export default function App() {
   const [busqueda, setBusqueda] = useState('')
   const [filtroCiudad, setFiltroCiudad] = useState('')
   const [menuPub, setMenuPub] = useState<any>(null)
+  const [panelResenas, setPanelResenas] = useState<any>(null)
   const [pubCompartida, setPubCompartida] = useState<string | null>(PUB_COMPARTIDA)
   const [vendPerfil, setVendPerfil] = useState<any>(null)
   const [vendPubs, setVendPubs] = useState<any[]>([])
@@ -1337,6 +1318,16 @@ export default function App() {
     if (!resPublicaciones.error) setMisPublicaciones(resPublicaciones.data)
   }
 
+  async function abrirPanel() {
+    setPanelResenas(null)
+    setVista('panel')
+    const res = await supabase.from('resenas').select('estrellas').eq('vendedor_id', String(userId))
+    if (!res.error && res.data) {
+      const n = res.data.length
+      setPanelResenas({ n: n, prom: n > 0 ? res.data.reduce((a:number, r:any) => a + r.estrellas, 0) / n : 0 })
+    }
+  }
+
   async function abrirVendedor(id: any) {
     setVendPerfil(null)
     setVendPubs([])
@@ -1517,6 +1508,20 @@ export default function App() {
     setVista('perfil')
   }
 
+  async function cambiarContrasena() {
+    if (!window.confirm('Te vamos a enviar un correo para que cambies tu contraseña. ¿Continuar?')) return
+    const u = await supabase.auth.getUser()
+    const email = u.data && u.data.user ? u.data.user.email : ''
+    if (!email) { window.alert('No pudimos encontrar tu correo.'); return }
+    const res = await supabase.auth.resetPasswordForEmail(email, { redirectTo: REDIRECT_URL })
+    window.alert(res.error ? 'No se pudo enviar el correo: ' + res.error.message : 'Te enviamos un correo a ' + email + ' para cambiar tu contraseña.')
+  }
+
+  function invitarAmigos() {
+    const texto = 'Mirá Tu Changarro Libre, el marketplace argentino para comprar y vender cerca tuyo: ' + URL_APP
+    window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank')
+  }
+
   async function cerrarSesion() {
     await supabase.auth.signOut()
     setAuthed(false)
@@ -1564,8 +1569,6 @@ export default function App() {
     setCatActiva('Todo')
     setOrden('recientes')
   }
-
-  const vistasTotales = misPublicaciones.reduce((acc:any, p:any) => acc + (p.vistas || 0), 0)
 
   T = isDarkMode ? DARK : LIGHT
 
@@ -1672,6 +1675,79 @@ export default function App() {
         onCompartir={()=>compartirPublicacion(p, detalleVendedor)}
         modales={modales}
       />
+    )
+  }
+
+  if (vista === 'panel') {
+    const vistasTot = misPublicaciones.reduce((a:number, x:any) => a + (x.vistas || 0), 0)
+    const activas = misPublicaciones.filter((x:any) => !x.vendida).length
+    const topVistas = [...misPublicaciones].sort((a:any, b:any) => (b.vistas || 0) - (a.vistas || 0)).slice(0, 5)
+    const maxVistas = topVistas.length > 0 ? Math.max(1, topVistas[0].vistas || 0) : 1
+    const etiqueta: any = { fontSize:11, color:T.muted, letterSpacing:'0.14em', marginBottom:14, fontWeight:600 }
+    const bloque = (valor: any, texto: string) => (
+      <div style={{ padding:'18px 0' }}>
+        <div style={{ fontSize:26, fontWeight:700, letterSpacing:'-0.02em' }}>{valor}</div>
+        <div style={{ fontSize:11, color:T.muted, marginTop:4 }}>{texto}</div>
+      </div>
+    )
+    const proximamente = (titulo: string, texto: string) => (
+      <div style={{ border:'1px solid '+T.border, borderRadius:16, padding:'16px', marginBottom:10 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}>
+          <div style={{ fontSize:14, fontWeight:600 }}>{titulo}</div>
+          <span style={{ fontSize:10, fontWeight:700, letterSpacing:'0.12em', color:T.muted, border:'1px solid '+T.border2, borderRadius:20, padding:'3px 10px', flexShrink:0 }}>PRÓXIMAMENTE</span>
+        </div>
+        <div style={{ fontSize:12, color:T.muted, marginTop:6, lineHeight:1.5 }}>{texto}</div>
+      </div>
+    )
+
+    return (
+      <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, width:'100vw', maxWidth:430, boxSizing:'border-box', overflowX:'hidden', margin:'0 auto', paddingBottom:100 }}>
+        <link href={FONTS} rel="stylesheet" />
+
+        <div style={{ display:'flex', alignItems:'center', gap:12, padding:'18px 18px 8px' }}>
+          <BackBtn onClick={()=>setVista('perfil')} />
+          <div style={{ fontSize:18, fontWeight:700, letterSpacing:'-0.01em' }}>Panel profesional</div>
+        </div>
+
+        <div style={{ padding:'8px 22px 20px' }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 20px', borderTop:'1px solid '+T.border, borderBottom:'1px solid '+T.border, margin:'10px 0 28px' }}>
+            {bloque(vistasTot, 'Vistas totales')}
+            {bloque(activas, 'Publicaciones activas')}
+            <div style={{ borderTop:'1px solid '+T.border }}>{bloque(perfilData?.cantidad_ventas || 0, 'Vendidos')}</div>
+            <div style={{ borderTop:'1px solid '+T.border }}>
+              {bloque(panelResenas && panelResenas.n > 0 ? panelResenas.prom.toFixed(1).replace('.', ',') : '-', panelResenas && panelResenas.n > 0 ? 'Reseñas (' + panelResenas.n + ')' : 'Sin reseñas todavía')}
+            </div>
+          </div>
+
+          <div style={etiqueta}>TUS PUBLICACIONES MÁS VISTAS</div>
+          {topVistas.length === 0 && (
+            <div style={{ fontSize:13, color:T.muted, padding:'10px 0 24px' }}>Cuando publiques, acá vas a ver cuáles llaman más la atención.</div>
+          )}
+          <div style={{ marginBottom:30 }}>
+            {topVistas.map((x:any) => (
+              <div key={x.id} onClick={()=>abrirDetalle(x, 'panel')} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 0', cursor:'pointer' }}>
+                {x.foto_url
+                  ? <img src={x.foto_url} alt="" loading="lazy" style={{ width:46, height:46, borderRadius:10, objectFit:'cover', flexShrink:0 }} />
+                  : <div style={{ width:46, height:46, borderRadius:10, background:T.s2, flexShrink:0 }} />
+                }
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:13, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{x.titulo}</div>
+                  <div style={{ height:3, borderRadius:3, background:T.s3, marginTop:8, overflow:'hidden' }}>
+                    <div style={{ height:'100%', width:Math.round(((x.vistas || 0) / maxVistas) * 100) + '%', background:T.sub, borderRadius:3 }} />
+                  </div>
+                </div>
+                <div style={{ fontSize:12, color:T.sub, flexShrink:0, minWidth:56, textAlign:'right' }}>{(x.vistas || 0) + ' vistas'}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={etiqueta}>IMPULSÁ TUS VENTAS</div>
+          {proximamente('Destacar publicaciones', 'Aparecé primero en el inicio y llegá a más gente.')}
+          {proximamente('Plan profesional', 'Más herramientas para quienes venden seguido.')}
+        </div>
+
+        <BottomNav vista="perfil" setVista={setVista} abrirPerfil={abrirPerfil} abrirBandejaMensajes={abrirBandejaMensajes} sinLeer={sinLeer} />
+      </div>
     )
   }
 
@@ -2045,79 +2121,83 @@ export default function App() {
   }
 
   if (vista === 'configuracion') {
+    const seccion = (titulo: string) => (
+      <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.14em', fontWeight:600, marginBottom:2 }}>{titulo}</div>
+    )
+    const opcionTema = (texto: string, activo: boolean, oscuro: boolean) => (
+      <button onClick={()=>setIsDarkMode(oscuro)} style={{
+        padding:'6px 16px', borderRadius:16, border:'none', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:T.font,
+        background: activo ? T.text : 'transparent', color: activo ? T.bg : T.muted
+      }}>
+        {texto}
+      </button>
+    )
     return (
-      <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, maxWidth:430, margin:'0 auto', paddingBottom:100 }}>
+      <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, width:'100vw', maxWidth:430, boxSizing:'border-box', overflowX:'hidden', margin:'0 auto', paddingBottom:100 }}>
         <link href={FONTS} rel="stylesheet" />
-        <div style={{ background:T.s1, padding:'16px 18px', borderBottom:'1px solid '+T.border, display:'flex', alignItems:'center', gap:12, position:'sticky', top:0, zIndex:60 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:12, padding:'18px 18px 8px' }}>
           <BackBtn onClick={()=>setVista('home')} />
-          <div style={{ fontWeight:700, fontSize:17, flex:1 }}>Configuracion</div>
+          <div style={{ fontSize:18, fontWeight:700, letterSpacing:'-0.01em' }}>Ajustes</div>
         </div>
 
-        <div style={{ padding:'20px 18px' }}>
+        <div style={{ padding:'14px 22px 20px' }}>
 
-          <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', marginBottom:6, fontWeight:600, textTransform:'uppercase' }}>Apariencia</div>
-          <div style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, padding:'4px 16px', marginBottom:24 }}>
-            <Toggle
-              label="Modo oscuro"
-              sub={isDarkMode ? 'Activado' : 'Desactivado'}
-              value={isDarkMode}
-              onChange={()=>setIsDarkMode(!isDarkMode)}
-            />
-          </div>
-
-          <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', marginBottom:6, fontWeight:600, textTransform:'uppercase' }}>Seguridad</div>
-          <div style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, padding:'4px 16px', marginBottom:24 }}>
+          {seccion('CUENTA')}
+          <div style={{ marginBottom:30 }}>
+            <LinkRow label="Editar perfil" onClick={abrirEditarPerfil} />
+            <LinkRow label="Cambiar contraseña" onClick={cambiarContrasena} />
             <LinkRow label="Usuarios bloqueados" value={bloqueados.length > 0 ? String(bloqueados.length) : ''} onClick={abrirBloqueados} />
           </div>
 
-          <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', marginBottom:6, fontWeight:600, textTransform:'uppercase' }}>Preferencias</div>
-          <div style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, padding:'4px 16px', marginBottom:24 }}>
-            <InfoRow label="Idioma" value="Espanol" sub="Mas idiomas proximamente" />
-            <InfoRow label="Moneda" value="Pesos Argentinos (ARS)" />
-          </div>
-
-          <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', marginBottom:6, fontWeight:600, textTransform:'uppercase' }}>Informacion</div>
-          <div style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, padding:'4px 16px', marginBottom:24 }}>
-            <InfoRow label="Version de la app" value="1.0.0" />
-            <LinkRow label="Ayuda y soporte" onClick={()=>setVista('ayuda')} />
-            <LinkRow label="Terminos y condiciones" onClick={()=>setVista('terminos')} />
-            <LinkRow label="Politica de privacidad" onClick={()=>setVista('privacidad')} />
-          </div>
-
-          <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', marginBottom:6, fontWeight:600, textTransform:'uppercase' }}>Cuenta</div>
-          <div style={{ background:T.s2, border:'1px solid '+T.border2, borderRadius:16, padding:'18px', marginBottom:24 }}>
-            <button onClick={cerrarSesion} style={{ width:'100%', padding:'12px', borderRadius:12, border:'1px solid '+T.border2, background:'transparent', color:T.text, fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:T.font }}>
-              Cerrar sesion
-            </button>
-          </div>
-
-          <div style={{ fontSize:11, color:T.red, letterSpacing:'0.1em', marginBottom:6, fontWeight:600, textTransform:'uppercase' }}>Zona de peligro</div>
-          <div style={{ background:T.s2, border:'1px solid '+T.red, borderRadius:16, padding:'18px' }}>
-            <div style={{ fontSize:13, color:T.sub, marginBottom:14, lineHeight:1.5 }}>
-              Eliminar tu cuenta borra de forma permanente tu perfil, tus publicaciones, tus mensajes y tus favoritos. Esta accion no se puede deshacer.
+          {seccion('APARIENCIA')}
+          <div style={{ marginBottom:30 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 0', borderBottom:'1px solid '+T.border }}>
+              <span style={{ fontSize:14, fontWeight:500 }}>Tema</span>
+              <div style={{ display:'flex', background:T.s2, borderRadius:20, padding:3 }}>
+                {opcionTema('Oscuro', isDarkMode, true)}
+                {opcionTema('Claro', !isDarkMode, false)}
+              </div>
             </div>
+            <InfoRow label="Idioma" value="Español" />
+            <InfoRow label="Moneda" value="Peso argentino (ARS)" />
+          </div>
 
+          {seccion('COMUNIDAD')}
+          <div style={{ marginBottom:30 }}>
+            <LinkRow label="Invitar amigos" onClick={invitarAmigos} />
+          </div>
+
+          {seccion('AYUDA Y LEGAL')}
+          <div style={{ marginBottom:30 }}>
+            <LinkRow label="Ayuda y soporte" onClick={()=>setVista('ayuda')} />
+            <LinkRow label="Términos y condiciones" onClick={()=>setVista('terminos')} />
+            <LinkRow label="Política de privacidad" onClick={()=>setVista('privacidad')} />
+          </div>
+
+          {seccion('SESIÓN')}
+          <div>
+            <LinkRow label="Cerrar sesión" onClick={cerrarSesion} />
             {!confirmandoEliminar ? (
-              <button onClick={()=>setConfirmandoEliminar(true)} style={{ width:'100%', padding:'12px', borderRadius:12, border:'1px solid '+T.red, background:'transparent', color:T.red, fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:T.font }}>
-                Eliminar cuenta
-              </button>
+              <LinkRow label="Eliminar cuenta" destacado onClick={()=>setConfirmandoEliminar(true)} />
             ) : (
-              <div>
-                <div style={{ fontSize:13, fontWeight:700, marginBottom:12, color:T.text }}>
-                  Estas seguro? Esto no se puede deshacer.
+              <div style={{ padding:'16px 0', borderBottom:'1px solid '+T.border }}>
+                <div style={{ fontSize:13, color:T.sub, marginBottom:14, lineHeight:1.55 }}>
+                  Eliminar tu cuenta borra de forma permanente tu perfil, tus publicaciones, tus mensajes y tus favoritos. Esta acción no se puede deshacer.
                 </div>
                 <div style={{ display:'flex', gap:10 }}>
-                  <button onClick={()=>setConfirmandoEliminar(false)} style={{ flex:1, padding:'12px', borderRadius:12, border:'1px solid '+T.border2, background:'transparent', color:T.text, fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:T.font }}>
+                  <button onClick={()=>setConfirmandoEliminar(false)} style={{ flex:1, padding:'12px', borderRadius:12, border:'1px solid '+T.border2, background:'transparent', color:T.text, fontWeight:600, fontSize:13, cursor:'pointer', fontFamily:T.font }}>
                     Cancelar
                   </button>
                   <button onClick={eliminarCuenta} disabled={eliminandoCuenta} style={{ flex:1, padding:'12px', borderRadius:12, border:'none', background:T.red, color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:T.font }}>
-                    {eliminandoCuenta ? 'Eliminando...' : 'Si, eliminar'}
+                    {eliminandoCuenta ? 'Eliminando...' : 'Sí, eliminar'}
                   </button>
                 </div>
               </div>
             )}
             {mensajeConfig && <p style={{ marginTop:14, color:T.red, fontSize:13, textAlign:'center' }}>{mensajeConfig}</p>}
           </div>
+
+          <div style={{ textAlign:'center', fontSize:11, color:T.muted, marginTop:34 }}>Tu Changarro Libre · Versión 1.0.0</div>
         </div>
         <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} abrirBandejaMensajes={abrirBandejaMensajes} sinLeer={sinLeer} />
       </div>
@@ -2187,25 +2267,12 @@ export default function App() {
               </div>
             </div>
 
-            <div style={{ display:'flex', margin:'26px 0 6px', borderTop:'1px solid '+T.border, borderBottom:'1px solid '+T.border, padding:'16px 0' }}>
-              <div style={{ flex:1, textAlign:'center' }}>
-                <div style={{ fontSize:20, fontWeight:700 }}>{misPublicaciones.length}</div>
-                <div style={{ fontSize:11, color:T.muted, marginTop:3 }}>Publicados</div>
-              </div>
-              <div style={{ flex:1, textAlign:'center', borderLeft:'1px solid '+T.border, borderRight:'1px solid '+T.border }}>
-                <div style={{ fontSize:20, fontWeight:700 }}>{perfilData.cantidad_ventas || 0}</div>
-                <div style={{ fontSize:11, color:T.muted, marginTop:3 }}>Vendidos</div>
-              </div>
-              <div style={{ flex:1, textAlign:'center' }}>
-                <div style={{ fontSize:20, fontWeight:700 }}>{vistasTotales}</div>
-                <div style={{ fontSize:11, color:T.muted, marginTop:3 }}>Vistas</div>
-              </div>
-            </div>
+            <div style={{ height:26 }} />
 
             <button onClick={abrirBandejaMensajes} style={{
-              width:'100%', background:'none', border:'none', borderBottom:'1px solid '+T.border,
+              width:'100%', background:'none', border:'none', borderTop:'1px solid '+T.border, borderBottom:'1px solid '+T.border,
               padding:'16px 2px', display:'flex', alignItems:'center', justifyContent:'space-between',
-              cursor:'pointer', color:T.text, fontFamily:T.font, fontSize:14, fontWeight:500, marginBottom:26
+              cursor:'pointer', color:T.text, fontFamily:T.font, fontSize:14, fontWeight:500
             }}>
               <span style={{ display:'flex', alignItems:'center', gap:10 }}>
                 Mensajes
@@ -2214,6 +2281,18 @@ export default function App() {
                     {sinLeer > 99 ? '99+' : sinLeer}
                   </span>
                 )}
+              </span>
+              <span style={{ color:T.muted }}>{'>'}</span>
+            </button>
+
+            <button onClick={abrirPanel} style={{
+              width:'100%', background:'none', border:'none', borderBottom:'1px solid '+T.border,
+              padding:'16px 2px', display:'flex', alignItems:'center', justifyContent:'space-between',
+              cursor:'pointer', color:T.text, fontFamily:T.font, textAlign:'left', marginBottom:28
+            }}>
+              <span>
+                <span style={{ display:'block', fontSize:14, fontWeight:500 }}>Panel profesional</span>
+                <span style={{ display:'block', fontSize:11, color:T.muted, marginTop:3 }}>Estadísticas y herramientas para vender más</span>
               </span>
               <span style={{ color:T.muted }}>{'>'}</span>
             </button>
