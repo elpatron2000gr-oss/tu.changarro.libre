@@ -820,7 +820,6 @@ function AuthScreen({ onAuth, onLegal }: any) {
             </GBtn>
           </div>
         )}
-
         {error&&<p style={{ marginTop:14, color:T.red, fontSize:13, textAlign:'center' }}>{error}</p>}
         {mensajeExito&&<p style={{ marginTop:14, color:T.green, fontSize:13, textAlign:'center', lineHeight:1.5 }}>{mensajeExito}</p>}
       </div>
@@ -1136,6 +1135,7 @@ export default function App() {
     setReporteObjetivo(null)
     setReporteEnviado(false)
   }
+
   async function enviarReporte() {
     if (!reporteMotivo) { setMensajeReporte('Elegi un motivo'); return }
     setEnviandoReporte(true)
@@ -1778,7 +1778,6 @@ export default function App() {
 
         {cargandoVend && <p style={{ color:T.muted, textAlign:'center', padding:40 }}>Cargando perfil...</p>}
         {!cargandoVend && !vendPerfil && <p style={{ color:T.muted, textAlign:'center', padding:40 }}>No se pudo cargar este perfil.</p>}
-
         {!cargandoVend && vendPerfil && (
           <div style={{ padding:'0 22px 20px' }}>
             <div style={{ display:'flex', flexDirection:'column', alignItems:'center', textAlign:'center' }}>
