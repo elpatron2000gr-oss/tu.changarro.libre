@@ -474,6 +474,52 @@ function IconoCompartir({ size = 20 }: any) {
   )
 }
 
+// Acepta "instagram.com/usuario" o un link completo; solo permite http/https. Devuelve '' si no sirve.
+function normalizarEnlace(texto: string): string {
+  let e = (texto || '').trim()
+  if (!e) return ''
+  if (!/^https?:\/\//i.test(e)) e = 'https://' + e
+  try {
+    const u = new URL(e)
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return ''
+    if (u.hostname.indexOf('.') === -1) return ''
+    return u.toString()
+  } catch (err) {
+    return ''
+  }
+}
+
+function textoEnlace(url: string): string {
+  const s = (url || '').replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/$/, '')
+  return s.length > 32 ? s.slice(0, 31) + '…' : s
+}
+
+function IconoEnlace({ size = 13 }: any) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}>
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </svg>
+  )
+}
+
+function BioPerfil({ bio, enlace }: any) {
+  if (!bio && !enlace) return null
+  return (
+    <>
+      {bio ? (
+        <div style={{ fontSize:13, color:T.sub, marginTop:10, lineHeight:1.5, maxWidth:300, whiteSpace:'pre-wrap', wordBreak:'break-word' }}>{bio}</div>
+      ) : null}
+      {enlace ? (
+        <a href={enlace} target="_blank" rel="noopener noreferrer nofollow" style={{ display:'inline-flex', alignItems:'center', gap:6, marginTop:10, fontSize:12, fontWeight:600, color:T.text, textDecoration:'none', border:'1px solid '+T.border2, borderRadius:20, padding:'6px 14px', maxWidth:'100%', boxSizing:'border-box' }}>
+          <IconoEnlace />
+          <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{textoEnlace(enlace)}</span>
+        </a>
+      ) : null}
+    </>
+  )
+}
+
 function IconoPlay({ size = 16 }: any) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="#fff" style={{ display:'block' }}>
@@ -966,6 +1012,8 @@ export default function App() {
 
   const [editNombre, setEditNombre] = useState('')
   const [editCiudad, setEditCiudad] = useState('')
+  const [editBio, setEditBio] = useState('')
+  const [editEnlace, setEditEnlace] = useState('')
   const [editProvincia, setEditProvincia] = useState('')
   const [avatarFile, setAvatarFile] = useState<any>(null)
   const [avatarPreview, setAvatarPreview] = useState<any>(null)
@@ -1335,7 +1383,7 @@ export default function App() {
     setCargandoVend(true)
     setVista('vendedor')
     const [rU, rP, rR] = await Promise.all([
-      supabase.from('usuarios').select('id,nombre,ciudad,provincia,nivel_reputacion,avatar_url,cantidad_ventas').eq('id', id).maybeSingle(),
+      supabase.from('usuarios').select('id,nombre,ciudad,provincia,nivel_reputacion,avatar_url,cantidad_ventas,bio,enlace').eq('id', id).maybeSingle(),
       supabase.from('publicaciones').select('*').eq('vendedor_id', id).order('fecha_publicacion', { ascending: false }),
       supabase.from('resenas').select('*').eq('vendedor_id', String(id)).order('fecha', { ascending: false }).limit(100)
     ])
@@ -1474,6 +1522,8 @@ export default function App() {
     setEditNombre(perfilData?.nombre || '')
     setEditCiudad(perfilData?.ciudad || '')
     setEditProvincia(perfilData?.provincia || '')
+    setEditBio(perfilData?.bio || '')
+    setEditEnlace(perfilData?.enlace || '')
     setAvatarFile(null)
     setAvatarPreview(perfilData?.avatar_url || null)
     setMensajeEditar('')
@@ -1482,6 +1532,8 @@ export default function App() {
 
   async function guardarPerfil() {
     if (!editNombre.trim()) { setMensajeEditar('El nombre no puede estar vacio'); return }
+    const enlaceFinal = normalizarEnlace(editEnlace)
+    if (editEnlace.trim() && !enlaceFinal) { setMensajeEditar('El link no parece válido. Probá con algo como instagram.com/tuusuario'); return }
     setGuardandoPerfil(true)
     setMensajeEditar('')
     let avatarUrl = perfilData?.avatar_url || null
@@ -1496,7 +1548,7 @@ export default function App() {
       avatarUrl = url.data.publicUrl
     }
     const res = await supabase.from('usuarios')
-      .update({ nombre: editNombre, ciudad: editCiudad, provincia: editProvincia, avatar_url: avatarUrl })
+      .update({ nombre: editNombre, ciudad: editCiudad, provincia: editProvincia, avatar_url: avatarUrl, bio: editBio.trim().replace(/\n{2,}/g, '\n'), enlace: enlaceFinal || null })
       .eq('id', userId)
       .select()
       .single()
@@ -1778,6 +1830,7 @@ export default function App() {
 
         {cargandoVend && <p style={{ color:T.muted, textAlign:'center', padding:40 }}>Cargando perfil...</p>}
         {!cargandoVend && !vendPerfil && <p style={{ color:T.muted, textAlign:'center', padding:40 }}>No se pudo cargar este perfil.</p>}
+
         {!cargandoVend && vendPerfil && (
           <div style={{ padding:'0 22px 20px' }}>
             <div style={{ display:'flex', flexDirection:'column', alignItems:'center', textAlign:'center' }}>
@@ -1789,6 +1842,7 @@ export default function App() {
               </div>
               <div style={{ fontSize:22, fontWeight:700, marginTop:12, letterSpacing:'-0.01em' }}>{vendPerfil.nombre}</div>
               {ubic ? <div style={{ fontSize:13, color:T.muted, marginTop:4 }}>{ubic}</div> : null}
+              <BioPerfil bio={vendPerfil.bio} enlace={vendPerfil.enlace} />
               <div style={{ fontSize:12, color:T.sub, marginTop:8 }}>Nivel {nivelV}</div>
               <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:12 }}>
                 {resenasVisibles.length > 0 ? (
@@ -1802,7 +1856,6 @@ export default function App() {
                 )}
               </div>
             </div>
-
             <div style={{ display:'flex', margin:'24px 0 20px', borderTop:'1px solid '+T.border, borderBottom:'1px solid '+T.border, padding:'16px 0' }}>
               <div style={{ flex:1, textAlign:'center', borderRight:'1px solid '+T.border }}>
                 <div style={{ fontSize:20, fontWeight:700 }}>{vendPubs.length}</div>
@@ -2095,6 +2148,15 @@ export default function App() {
           <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Nombre *</label>
           <Input value={editNombre} onChange={(e:any)=>setEditNombre(e.target.value)} placeholder="Tu nombre" style={{ marginBottom:16 }} />
 
+          <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Descripción</label>
+          <textarea value={editBio} onChange={(e:any)=>setEditBio(e.target.value.slice(0, 150))} rows={3} placeholder="Contá algo sobre vos o tu negocio"
+            style={{ background:T.s2, color:T.text, border:'1px solid '+T.border2, borderRadius:12, padding:'13px 16px', fontSize:15, outline:'none', fontFamily:T.font, width:'100%', boxSizing:'border-box', resize:'none' }} />
+          <div style={{ fontSize:11, color:T.muted, textAlign:'right', margin:'6px 0 16px' }}>{editBio.length}/150</div>
+
+          <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Link</label>
+          <Input value={editEnlace} onChange={(e:any)=>setEditEnlace(e.target.value.slice(0, 200))} placeholder="Instagram, Google Maps, tu página..." style={{ marginBottom:6 }} />
+          <div style={{ fontSize:11, color:T.muted, marginBottom:16 }}>Podés poner un solo link: tu red social, tu ubicación en Maps o tu web.</div>
+
           <label style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', display:'block', marginBottom:7, fontWeight:600, textTransform:'uppercase' }}>Correo</label>
           <Input value={perfilData?.email || ''} onChange={()=>{}} style={{ marginBottom:6, opacity:0.5 }} />
           <div style={{ fontSize:11, color:T.muted, marginBottom:16 }}>El correo no se puede modificar</div>
@@ -2252,6 +2314,12 @@ export default function App() {
               </div>
               <div style={{ fontSize:22, fontWeight:700, marginTop:12, letterSpacing:'-0.01em' }}>{perfilData.nombre}</div>
               {ubicacion ? <div style={{ fontSize:13, color:T.muted, marginTop:4 }}>{ubicacion}</div> : null}
+              <BioPerfil bio={perfilData.bio} enlace={perfilData.enlace} />
+              {!perfilData.bio && !perfilData.enlace && (
+                <button onClick={abrirEditarPerfil} style={{ background:'none', border:'none', color:T.muted, fontSize:12, marginTop:10, cursor:'pointer', fontFamily:T.font, textDecoration:'underline' }}>
+                  Agregá una descripción y un link
+                </button>
+              )}
               <div style={{ fontSize:12, color:T.sub, marginTop:8 }}>
                 Nivel {nivel} - {puntaje} puntos
               </div>
