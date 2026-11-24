@@ -781,54 +781,51 @@ function ModalNuevaBusqueda({ abierto, titulo, setTitulo, desc, setDesc, categor
   )
 }
 
-function ModalResponderBusqueda({ busqueda, pubs, cargando, seleccion, setSeleccion, enviando, mensaje, onEnviar, onCerrar, onPublicar }: any) {
+function ModalResponderBusqueda({ busqueda, pubs, cargando, seleccion, setSeleccion, texto, setTexto, enviando, mensaje, onEnviar, onCerrar }: any) {
   if (!busqueda) return null
   return (
     <div className="tcl-modal-fondo" onClick={onCerrar} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', zIndex:100, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
-      <div className="tcl-modal-panel" onClick={(e:any)=>e.stopPropagation()} style={{ width:'100%', maxWidth:430, maxHeight:'85vh', overflowY:'auto', background:T.s1, borderRadius:'20px 20px 0 0', padding:'22px 22px calc(22px + env(safe-area-inset-bottom))', fontFamily:T.font, color:T.text, boxSizing:'border-box' }}>
-        <div style={{ fontSize:18, fontWeight:800 }}>¿Cuál tenés para ofrecer?</div>
+      <div className="tcl-modal-panel" onClick={(e:any)=>e.stopPropagation()} style={{ width:'100%', maxWidth:430, maxHeight:'88vh', overflowY:'auto', background:T.s1, borderRadius:'20px 20px 0 0', padding:'22px 22px calc(22px + env(safe-area-inset-bottom))', fontFamily:T.font, color:T.text, boxSizing:'border-box' }}>
+        <div style={{ fontSize:18, fontWeight:800 }}>Responder pedido</div>
         <div style={{ fontSize:12, color:T.muted, marginTop:4, marginBottom:16, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>Pedido: {busqueda.titulo}</div>
 
-        {cargando && <Skel w="100%" h={56} r={12} />}
+        <textarea value={texto} onChange={(e:any)=>setTexto(e.target.value.slice(0, 300))} rows={3} placeholder="Contale qué tenés, el precio y cuándo podés entregarlo"
+          style={{ width:'100%', padding:'12px 14px', borderRadius:12, border:'1px solid '+T.border2, background:T.s2, color:T.text, fontSize:14, outline:'none', fontFamily:T.font, boxSizing:'border-box', resize:'none' }} />
 
-        {!cargando && pubs.length === 0 && (
-          <div style={{ textAlign:'center', padding:'18px 0 6px' }}>
-            <div style={{ fontSize:13, color:T.muted, lineHeight:1.5 }}>Todavía no tenés publicaciones activas para ofrecer.</div>
-            <button onClick={onPublicar} style={{ marginTop:16, background:'none', border:'1px solid '+T.border2, color:T.text, borderRadius:20, padding:'10px 22px', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:T.font }}>
-              Publicar ahora
-            </button>
+        {cargando && <div style={{ marginTop:16 }}><Skel w="100%" h={56} r={12} /></div>}
+
+        {!cargando && pubs.length > 0 && (
+          <div style={{ marginTop:18 }}>
+            <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.1em', fontWeight:600, marginBottom:10 }}>ADJUNTAR UNA DE TUS PUBLICACIONES (OPCIONAL)</div>
+            {pubs.map((x:any) => {
+              const activa = String(seleccion) === String(x.id)
+              return (
+                <div key={x.id} onClick={()=>setSeleccion(activa ? '' : String(x.id))} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px', marginBottom:8, borderRadius:14, border:'1px solid '+(activa ? T.text : T.border), cursor:'pointer' }}>
+                  {x.foto_url
+                    ? <Img src={x.foto_url} style={{ width:46, height:46, borderRadius:10, objectFit:'cover', flexShrink:0 }} />
+                    : <div style={{ width:46, height:46, borderRadius:10, background:T.s2, flexShrink:0 }} />
+                  }
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{x.titulo}</div>
+                    <div style={{ fontSize:13, fontWeight:700, marginTop:3 }}>${Number(x.precio).toLocaleString('es-AR')}</div>
+                  </div>
+                  <div style={{ width:18, height:18, borderRadius:'50%', border:'2px solid '+(activa ? T.text : T.border2), background: activa ? T.text : 'transparent', flexShrink:0 }} />
+                </div>
+              )
+            })}
           </div>
         )}
-
-        {!cargando && pubs.map((x:any) => {
-          const activa = String(seleccion) === String(x.id)
-          return (
-            <div key={x.id} onClick={()=>setSeleccion(String(x.id))} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px', marginBottom:8, borderRadius:14, border:'1px solid '+(activa ? T.text : T.border), cursor:'pointer' }}>
-              {x.foto_url
-                ? <Img src={x.foto_url} style={{ width:46, height:46, borderRadius:10, objectFit:'cover', flexShrink:0 }} />
-                : <div style={{ width:46, height:46, borderRadius:10, background:T.s2, flexShrink:0 }} />
-              }
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:13, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{x.titulo}</div>
-                <div style={{ fontSize:13, fontWeight:700, marginTop:3 }}>${Number(x.precio).toLocaleString('es-AR')}</div>
-              </div>
-              <div style={{ width:18, height:18, borderRadius:'50%', border:'2px solid '+(activa ? T.text : T.border2), background: activa ? T.text : 'transparent', flexShrink:0 }} />
-            </div>
-          )
-        })}
 
         {mensaje && <p style={{ color:T.red, fontSize:13, margin:'10px 0 0' }}>{mensaje}</p>}
 
-        {pubs.length > 0 && (
-          <div style={{ display:'flex', gap:10, marginTop:16 }}>
-            <button onClick={onCerrar} style={{ flex:1, padding:'13px', borderRadius:14, border:'1px solid '+T.border2, background:'transparent', color:T.text, fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:T.font }}>
-              Cancelar
-            </button>
-            <button onClick={onEnviar} disabled={enviando} style={{ flex:1.4, padding:'13px', borderRadius:14, border:'none', background:G, color:'#0a0a0a', fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:T.font }}>
-              {enviando ? 'Enviando...' : 'Enviar'}
-            </button>
-          </div>
-        )}
+        <div style={{ display:'flex', gap:10, marginTop:18 }}>
+          <button onClick={onCerrar} style={{ flex:1, padding:'13px', borderRadius:14, border:'1px solid '+T.border2, background:'transparent', color:T.text, fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:T.font }}>
+            Cancelar
+          </button>
+          <button onClick={onEnviar} disabled={enviando} style={{ flex:1.4, padding:'13px', borderRadius:14, border:'none', background:G, color:'#0a0a0a', fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:T.font }}>
+            {enviando ? 'Enviando...' : 'Enviar'}
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -1310,6 +1307,7 @@ export default function App() {
   const [misPubsResp, setMisPubsResp] = useState<any[]>([])
   const [cargandoResp, setCargandoResp] = useState(false)
   const [respSeleccion, setRespSeleccion] = useState('')
+  const [respTexto, setRespTexto] = useState('')
   const [enviandoResp, setEnviandoResp] = useState(false)
   const [mensajeResp, setMensajeResp] = useState('')
   const [favAnim, setFavAnim] = useState<any>(null)
@@ -1555,29 +1553,29 @@ export default function App() {
     if (res.error) { setMensajeReporte('Error: ' + res.error.message); return }
     setReporteEnviado(true)
   }
+
+  async function toggleFavorito(pubId: any) {
+    const esFav = favoritos.includes(pubId)
+    if (esFav) {
+      await supabase.from('favoritos').delete().eq('usuario_id', userId).eq('publicacion_id', pubId)
+      setFavoritos(favoritos.filter(id => id !== pubId))
+    } else {
+      await supabase.from('favoritos').insert([{ usuario_id: userId, publicacion_id: pubId }])
+      setFavoritos([...favoritos, pubId])
+    }
+  }
+
+  function animarFav(id: any) {
+    setFavAnim(id)
+    setTimeout(() => setFavAnim(null), 450)
+  }
+
+  async function pedirInsignias(id: any) {
+    const r = await supabase.rpc('insignias_vendedor', { p_vendedor: String(id) })
+    return (!r.error && r.data) ? r.data : null
+  }
 // ==== FIN PARTE 2 de 4 - pega la parte 3 justo debajo ====
 // ==== INICIO PARTE 3 de 4 ====
-async function toggleFavorito(pubId: any) {
-  const esFav = favoritos.includes(pubId)
-  if (esFav) {
-    await supabase.from('favoritos').delete().eq('usuario_id', userId).eq('publicacion_id', pubId)
-    setFavoritos(favoritos.filter(id => id !== pubId))
-  } else {
-    await supabase.from('favoritos').insert([{ usuario_id: userId, publicacion_id: pubId }])
-    setFavoritos([...favoritos, pubId])
-  }
-}
-
-function animarFav(id: any) {
-  setFavAnim(id)
-  setTimeout(() => setFavAnim(null), 450)
-}
-
-async function pedirInsignias(id: any) {
-  const r = await supabase.rpc('insignias_vendedor', { p_vendedor: String(id) })
-  return (!r.error && r.data) ? r.data : null
-}
-
 async function abrirDetalle(p: any, origen: string = 'home') {
   if (p.vendedor_id !== userId) {
     supabase.from('publicaciones').update({ vistas: (p.vistas || 0) + 1 }).eq('id', p.id).then(()=>{})
@@ -1605,14 +1603,16 @@ async function abrirChat(p: any, otroUsuarioId: any, origen: string = 'home', no
   const filtro =
     'and(emisor_id.eq.' + userId + ',receptor_id.eq.' + otroUsuarioId + '),' +
     'and(emisor_id.eq.' + otroUsuarioId + ',receptor_id.eq.' + userId + ')'
-  const res = await supabase.from('mensajes')
-    .select('*')
-    .eq('publicacion_id', p.id)
-    .or(filtro)
-    .order('fecha', { ascending: true })
+  let consulta: any = supabase.from('mensajes').select('*')
+  consulta = p.esBusqueda ? consulta.eq('busqueda_id', p.busqueda_id) : consulta.eq('publicacion_id', p.id)
+  const res = await consulta.or(filtro).order('fecha', { ascending: true })
   if (!res.error) {
     setChatMensajes(res.data)
-    await supabase.rpc('marcar_mensajes_leidos', { p_pub: String(p.id), p_otro: String(otroUsuarioId) })
+    if (p.esBusqueda) {
+      await supabase.rpc('marcar_mensajes_leidos_busqueda', { p_busqueda: String(p.busqueda_id), p_otro: String(otroUsuarioId) })
+    } else {
+      await supabase.rpc('marcar_mensajes_leidos', { p_pub: String(p.id), p_otro: String(otroUsuarioId) })
+    }
     cargarSinLeer()
   }
 }
@@ -1672,6 +1672,7 @@ async function cerrarBusqueda(b: any) {
 async function abrirResponder(b: any) {
   setBusqResponder(b)
   setRespSeleccion('')
+  setRespTexto('')
   setMensajeResp('')
   setMisPubsResp([])
   setCargandoResp(true)
@@ -1680,19 +1681,30 @@ async function abrirResponder(b: any) {
   setCargandoResp(false)
 }
 
+function contextoBusqueda(b: any) {
+  return { id: null, esBusqueda: true, busqueda_id: b.id, titulo: b.titulo, precio: b.presupuesto || 0, foto_url: null, vendedor_id: b.usuario_id }
+}
+
 async function enviarRespuestaBusqueda() {
   if (!busqResponder) return
-  const pub = misPubsResp.find((x:any) => String(x.id) === String(respSeleccion))
-  if (!pub) { setMensajeResp('Elegí una de tus publicaciones'); return }
+  const pub = respSeleccion ? misPubsResp.find((x:any) => String(x.id) === String(respSeleccion)) : null
+  const escrito = respTexto.trim()
+  if (!pub && escrito.length < 2) { setMensajeResp('Escribí un mensaje o elegí una de tus publicaciones'); return }
+  let contenido = escrito
+  if (pub && !escrito) {
+    contenido = 'Hola! Vi que buscás "' + busqResponder.titulo + '". Tengo esto: "' + pub.titulo + '" ($' + Number(pub.precio).toLocaleString('es-AR') + '). ¿Te interesa?'
+  }
   setEnviandoResp(true)
   setMensajeResp('')
-  const texto = 'Hola! Vi que buscás "' + busqResponder.titulo + '". Tengo esto: "' + pub.titulo + '" ($' + Number(pub.precio).toLocaleString('es-AR') + '). ¿Te interesa?'
-  const res = await supabase.from('mensajes').insert([{ emisor_id: userId, receptor_id: busqResponder.usuario_id, publicacion_id: pub.id, contenido: texto }])
+  const fila: any = { emisor_id: userId, receptor_id: busqResponder.usuario_id, contenido: contenido }
+  if (pub) fila.publicacion_id = pub.id
+  else fila.busqueda_id = busqResponder.id
+  const res = await supabase.from('mensajes').insert([fila])
   setEnviandoResp(false)
   if (res.error) { setMensajeResp('No se pudo enviar: ' + res.error.message); return }
   const destino = busqResponder
   setBusqResponder(null)
-  abrirChat(pub, destino.usuario_id, 'home', destino.autor_nombre || '')
+  abrirChat(pub ? pub : contextoBusqueda(destino), destino.usuario_id, 'home', destino.autor_nombre || '')
 }
 
 function abrirOferta() {
@@ -1720,7 +1732,10 @@ async function enviarOferta() {
 async function enviarMensaje() {
   if (!chatTexto.trim()) return
   setEnviando(true)
-  const res = await supabase.from('mensajes').insert([{ emisor_id: userId, receptor_id: chatOtroUsuario, publicacion_id: chatProducto.id, contenido: chatTexto }]).select().single()
+  const filaChat: any = { emisor_id: userId, receptor_id: chatOtroUsuario, contenido: chatTexto }
+  if (chatProducto.esBusqueda) filaChat.busqueda_id = chatProducto.busqueda_id
+  else filaChat.publicacion_id = chatProducto.id
+  const res = await supabase.from('mensajes').insert([filaChat]).select().single()
   setEnviando(false)
   if (!res.error) { setChatMensajes([...chatMensajes, res.data]); setChatTexto('') }
 }
@@ -1958,19 +1973,29 @@ async function abrirBandejaMensajes() {
   const conversaciones: any[] = []
   for (const m of res.data) {
     const otro = m.emisor_id === userId ? m.receptor_id : m.emisor_id
-    const key = m.publicacion_id + '-' + otro
+    const key = (m.publicacion_id || ('b' + m.busqueda_id)) + '-' + otro
     if (!vistos.has(key)) {
       vistos.add(key)
       conversaciones.push({ ...m, otro })
     }
   }
 
-  const pubIds = [...new Set(conversaciones.map((c:any) => c.publicacion_id))]
+  const pubIds = [...new Set(conversaciones.map((c:any) => c.publicacion_id).filter(Boolean))]
   if (pubIds.length > 0) {
     const resPub = await supabase.from('publicaciones').select('id,titulo,foto_url,precio,vendedor_id').in('id', pubIds)
     const pubMap: any = {}
     if (!resPub.error) resPub.data.forEach((p:any) => pubMap[p.id] = p)
     conversaciones.forEach((c:any) => c.producto = pubMap[c.publicacion_id])
+  }
+
+  const busqIds = [...new Set(conversaciones.filter((c:any) => !c.publicacion_id && c.busqueda_id).map((c:any) => c.busqueda_id))]
+  if (busqIds.length > 0) {
+    const resB = await supabase.from('busquedas').select('id,titulo,presupuesto,usuario_id').in('id', busqIds)
+    const bMap: any = {}
+    if (!resB.error && resB.data) resB.data.forEach((b:any) => { bMap[b.id] = b })
+    conversaciones.forEach((c:any) => {
+      if (!c.publicacion_id && c.busqueda_id && bMap[c.busqueda_id]) c.producto = contextoBusqueda(bMap[c.busqueda_id])
+    })
   }
 
   const otroIds = [...new Set(conversaciones.map((c:any) => c.otro))]
@@ -2426,10 +2451,12 @@ if (vista === 'chat' && chatProducto) {
             {chatOtroNombre || chatProducto.titulo}
           </div>
           <div style={{ fontSize:11, color:T.muted, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-            {chatOtroNombre ? chatProducto.titulo : 'Chat del producto'}
+            {chatOtroNombre ? (chatProducto.esBusqueda ? 'Pedido: ' : '') + chatProducto.titulo : 'Chat del producto'}
           </div>
         </div>
-        <div style={{ color:T.text, fontWeight:700, fontSize:16 }}>${Number(chatProducto.precio).toLocaleString()}</div>
+        {(!chatProducto.esBusqueda || Number(chatProducto.precio) > 0) && (
+          <div style={{ color:T.text, fontWeight:700, fontSize:16 }}>{chatProducto.esBusqueda ? 'Hasta ' : ''}${Number(chatProducto.precio).toLocaleString('es-AR')}</div>
+        )}
         <button onClick={()=>setMenuChat(!menuChat)} style={{ background:'none', border:'none', color:T.text, fontSize:22, fontWeight:'bold', cursor:'pointer', padding:'0 4px', lineHeight:1 }}>
           ⋯
         </button>
@@ -2493,7 +2520,7 @@ if (vista === 'mensajes') {
           const yoEscribi = c.emisor_id === userId
           const convSinLeer = c.receptor_id === userId && c.leido === false
           return (
-            <button key={c.publicacion_id+'-'+c.otro} onClick={()=>abrirConversacion(c)} style={{
+            <button key={(c.publicacion_id || ('b'+c.busqueda_id))+'-'+c.otro} onClick={()=>abrirConversacion(c)} style={{
               width:'100%', textAlign:'left', display:'flex', gap:14, alignItems:'center',
               background:'transparent', border:'none', borderBottom:'1px solid '+T.border,
               padding:'14px 18px', cursor:'pointer', fontFamily:T.font, color:T.text
@@ -2519,7 +2546,7 @@ if (vista === 'mensajes') {
                   <div style={{ fontSize:10, color:T.muted, flexShrink:0 }}>{tiempoTranscurrido(c.fecha)}</div>
                 </div>
                 <div style={{ fontSize:11, color:T.gold, fontWeight:600, marginBottom:3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                  {c.producto?.titulo || 'Publicacion eliminada'}
+                  {c.producto?.esBusqueda ? 'Pedido: ' : ''}{c.producto?.titulo || 'Publicacion eliminada'}
                 </div>
                 <div style={{ fontSize:13, color: convSinLeer ? T.text : T.muted, fontWeight: convSinLeer ? 600 : 400, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                   {yoEscribi ? 'Vos: ' : ''}{c.contenido}
@@ -3057,9 +3084,9 @@ return (
     <ModalResponderBusqueda
       busqueda={busqResponder} pubs={misPubsResp} cargando={cargandoResp}
       seleccion={respSeleccion} setSeleccion={setRespSeleccion}
+      texto={respTexto} setTexto={setRespTexto}
       enviando={enviandoResp} mensaje={mensajeResp}
       onEnviar={enviarRespuestaBusqueda} onCerrar={()=>setBusqResponder(null)}
-      onPublicar={()=>{ setBusqResponder(null); setVista('publicar') }}
     />
 
     <BottomNav vista={vista} setVista={setVista} abrirPerfil={abrirPerfil} abrirBandejaMensajes={abrirBandejaMensajes} sinLeer={sinLeer} />
