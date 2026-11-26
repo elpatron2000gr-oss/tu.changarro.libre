@@ -746,8 +746,7 @@ function TarjetaBusqueda({ b, esMia, onResponder, onCerrar }: any) {
     </div>
   )
 }
-// ==== FIN PARTE 1 de 4 - pega la parte 2 justo debajo ====
-// ==== INICIO PARTE 2 de 4 ====
+
 function ModalNuevaBusqueda({ abierto, titulo, setTitulo, desc, setDesc, categoria, setCategoria, presupuesto, setPresupuesto, enviando, mensaje, onEnviar, onCerrar }: any) {
   if (!abierto) return null
   const campo: any = { width:'100%', padding:'12px 14px', borderRadius:12, border:'1px solid '+T.border2, background:T.s2, color:T.text, fontSize:14, outline:'none', fontFamily:T.font, boxSizing:'border-box' }
@@ -780,7 +779,8 @@ function ModalNuevaBusqueda({ abierto, titulo, setTitulo, desc, setDesc, categor
     </div>
   )
 }
-
+// ==== FIN PARTE 1 de 4 - pega la parte 2 justo debajo ====
+// ==== INICIO PARTE 2 de 4 ====
 function ModalResponderBusqueda({ busqueda, pubs, cargando, seleccion, setSeleccion, texto, setTexto, enviando, mensaje, onEnviar, onCerrar }: any) {
   if (!busqueda) return null
   return (
@@ -826,6 +826,58 @@ function ModalResponderBusqueda({ busqueda, pubs, cargando, seleccion, setSelecc
             {enviando ? 'Enviando...' : 'Enviar'}
           </button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+const LUGARES_SEGUROS = [
+  { clave:'comisaria', titulo:'Frente a una comisaría', consulta:'comisaría', propuesta:'frente a una comisaría' },
+  { clave:'estacion', titulo:'Estación de servicio', consulta:'estación de servicio', propuesta:'en una estación de servicio' },
+  { clave:'shopping', titulo:'Shopping o centro comercial', consulta:'shopping', propuesta:'en un shopping o centro comercial' },
+  { clave:'plaza', titulo:'Plaza o espacio público', consulta:'plaza', propuesta:'en una plaza concurrida' }
+]
+
+const CONSEJOS_SEGUROS = [
+  'Encontrate en un lugar público y con gente, mejor de día.',
+  'Avisale a alguien de confianza dónde vas y con quién.',
+  'Probá el producto antes de pagar.',
+  'No hagas adelantos ni transferencias a desconocidos, y desconfiá si te apuran.',
+  'Antes de entregar algo, verificá en tu cuenta que el dinero ya esté acreditado.'
+]
+
+function ModalEncuentro({ abierto, ciudad, onProponer, onCerrar }: any) {
+  if (!abierto) return null
+  const urlMapas = (consulta: string) => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(consulta + (ciudad ? ' ' + ciudad : ''))
+  return (
+    <div className="tcl-modal-fondo" onClick={onCerrar} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', zIndex:100, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
+      <div className="tcl-modal-panel" onClick={(e:any)=>e.stopPropagation()} style={{ width:'100%', maxWidth:430, maxHeight:'88vh', overflowY:'auto', background:T.s1, borderRadius:'20px 20px 0 0', padding:'22px 22px calc(22px + env(safe-area-inset-bottom))', fontFamily:T.font, color:T.text, boxSizing:'border-box' }}>
+        <div style={{ fontSize:18, fontWeight:800 }}>Punto de encuentro seguro</div>
+        <div style={{ fontSize:12, color:T.muted, marginTop:4, marginBottom:18 }}>Elegí un lugar público y proponeselo en el chat.</div>
+
+        {LUGARES_SEGUROS.map(l => (
+          <div key={l.clave} style={{ display:'flex', alignItems:'center', gap:10, padding:'13px 0', borderBottom:'1px solid '+T.border }}>
+            <div style={{ flex:1, minWidth:0, fontSize:14, fontWeight:500 }}>{l.titulo}</div>
+            <a href={urlMapas(l.consulta)} target="_blank" rel="noopener noreferrer" style={{ fontSize:12, fontWeight:600, color:T.sub, textDecoration:'none', border:'1px solid '+T.border2, borderRadius:20, padding:'6px 12px', flexShrink:0 }}>
+              Ver en mapa
+            </a>
+            <button onClick={()=>onProponer('Te propongo encontrarnos ' + l.propuesta + (ciudad ? ' de ' + ciudad : '') + ', un lugar público y con gente. ¿Te parece?')} style={{ background:T.text, border:'none', color:T.bg, borderRadius:20, padding:'7px 14px', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:T.font, flexShrink:0 }}>
+              Proponer
+            </button>
+          </div>
+        ))}
+
+        <div style={{ fontSize:11, color:T.muted, letterSpacing:'0.14em', fontWeight:600, margin:'24px 0 12px' }}>CONSEJOS PARA VENDER Y COMPRAR SIN RIESGOS</div>
+        {CONSEJOS_SEGUROS.map((c, i) => (
+          <div key={i} style={{ display:'flex', gap:10, fontSize:13, color:T.sub, lineHeight:1.5, marginBottom:10 }}>
+            <span style={{ color:T.muted, flexShrink:0 }}>-</span>
+            <span>{c}</span>
+          </div>
+        ))}
+
+        <button onClick={onCerrar} style={{ width:'100%', marginTop:12, padding:'13px', borderRadius:14, border:'1px solid '+T.border2, background:'transparent', color:T.text, fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:T.font }}>
+          Cerrar
+        </button>
       </div>
     </div>
   )
@@ -1293,6 +1345,7 @@ export default function App() {
   const [busqueda, setBusqueda] = useState('')
   const [filtroCiudad, setFiltroCiudad] = useState('')
   const [menuPub, setMenuPub] = useState<any>(null)
+  const [encuentroAbierto, setEncuentroAbierto] = useState(false)
   const [seccionHome, setSeccionHome] = useState('publicaciones')
   const [busquedas, setBusquedas] = useState<any[]>([])
   const [cargandoBusq, setCargandoBusq] = useState(false)
@@ -1537,45 +1590,45 @@ export default function App() {
     setReporteObjetivo(null)
     setReporteEnviado(false)
   }
-
-  async function enviarReporte() {
-    if (!reporteMotivo) { setMensajeReporte('Elegi un motivo'); return }
-    setEnviandoReporte(true)
-    setMensajeReporte('')
-    const motivoFinal = reporteMotivo + (reporteDetalle.trim() ? ': ' + reporteDetalle.trim() : '')
-    const res = await supabase.from('reportes').insert([{
-      reportante_id: userId,
-      publicacion_id: reporteObjetivo.publicacionId || null,
-      usuario_reportado_id: reporteObjetivo.usuarioId || null,
-      motivo: motivoFinal
-    }])
-    setEnviandoReporte(false)
-    if (res.error) { setMensajeReporte('Error: ' + res.error.message); return }
-    setReporteEnviado(true)
-  }
-
-  async function toggleFavorito(pubId: any) {
-    const esFav = favoritos.includes(pubId)
-    if (esFav) {
-      await supabase.from('favoritos').delete().eq('usuario_id', userId).eq('publicacion_id', pubId)
-      setFavoritos(favoritos.filter(id => id !== pubId))
-    } else {
-      await supabase.from('favoritos').insert([{ usuario_id: userId, publicacion_id: pubId }])
-      setFavoritos([...favoritos, pubId])
-    }
-  }
-
-  function animarFav(id: any) {
-    setFavAnim(id)
-    setTimeout(() => setFavAnim(null), 450)
-  }
-
-  async function pedirInsignias(id: any) {
-    const r = await supabase.rpc('insignias_vendedor', { p_vendedor: String(id) })
-    return (!r.error && r.data) ? r.data : null
-  }
 // ==== FIN PARTE 2 de 4 - pega la parte 3 justo debajo ====
 // ==== INICIO PARTE 3 de 4 ====
+async function enviarReporte() {
+  if (!reporteMotivo) { setMensajeReporte('Elegi un motivo'); return }
+  setEnviandoReporte(true)
+  setMensajeReporte('')
+  const motivoFinal = reporteMotivo + (reporteDetalle.trim() ? ': ' + reporteDetalle.trim() : '')
+  const res = await supabase.from('reportes').insert([{
+    reportante_id: userId,
+    publicacion_id: reporteObjetivo.publicacionId || null,
+    usuario_reportado_id: reporteObjetivo.usuarioId || null,
+    motivo: motivoFinal
+  }])
+  setEnviandoReporte(false)
+  if (res.error) { setMensajeReporte('Error: ' + res.error.message); return }
+  setReporteEnviado(true)
+}
+
+async function toggleFavorito(pubId: any) {
+  const esFav = favoritos.includes(pubId)
+  if (esFav) {
+    await supabase.from('favoritos').delete().eq('usuario_id', userId).eq('publicacion_id', pubId)
+    setFavoritos(favoritos.filter(id => id !== pubId))
+  } else {
+    await supabase.from('favoritos').insert([{ usuario_id: userId, publicacion_id: pubId }])
+    setFavoritos([...favoritos, pubId])
+  }
+}
+
+function animarFav(id: any) {
+  setFavAnim(id)
+  setTimeout(() => setFavAnim(null), 450)
+}
+
+async function pedirInsignias(id: any) {
+  const r = await supabase.rpc('insignias_vendedor', { p_vendedor: String(id) })
+  return (!r.error && r.data) ? r.data : null
+}
+
 async function abrirDetalle(p: any, origen: string = 'home') {
   if (p.vendedor_id !== userId) {
     supabase.from('publicaciones').update({ vistas: (p.vistas || 0) + 1 }).eq('id', p.id).then(()=>{})
@@ -2473,7 +2526,9 @@ if (vista === 'chat' && chatProducto) {
       </div>
       <div style={{ flex:1, padding:'18px', overflowY:'auto', display:'flex', flexDirection:'column', gap:10, minHeight:400 }}>
         {chatMensajes.length===0&&(
-          <div style={{ textAlign:'center', padding:'40px 20px', color:T.muted }}>Se el primero en escribir</div>
+          <div style={{ textAlign:'center', padding:'40px 20px', color:T.muted, fontSize:13, lineHeight:1.6 }}>
+            Escribí el primer mensaje.<br />Para coordinar la entrega, tocá el pin de abajo y elegí un punto de encuentro seguro.
+          </div>
         )}
         {chatMensajes.map(m=>(
           <div key={m.id} style={{ maxWidth:'80%', alignSelf:m.emisor_id===userId?'flex-end':'flex-start' }}>
@@ -2486,7 +2541,10 @@ if (vista === 'chat' && chatProducto) {
           </div>
         ))}
       </div>
-      <div style={{ padding:'16px 18px', borderTop:'1px solid '+T.border, display:'flex', gap:10 }}>
+      <div style={{ padding:'16px 18px', borderTop:'1px solid '+T.border, display:'flex', gap:10, alignItems:'center' }}>
+        <button onClick={()=>setEncuentroAbierto(true)} aria-label="Punto de encuentro seguro" style={{ width:44, height:44, borderRadius:'50%', border:'1px solid '+T.border2, background:'transparent', color:T.text, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', padding:0, flexShrink:0 }}>
+          <IconoUbicacion size={18} />
+        </button>
         <input value={chatTexto} onChange={e=>setChatTexto(e.target.value)} onKeyDown={e=>e.key==='Enter'&&enviarMensaje()} placeholder="Escribi tu mensaje"
           style={{ flex:1, padding:'12px 16px', borderRadius:24, border:'1px solid '+T.border2, background:T.s2, color:T.text, fontSize:14, outline:'none', fontFamily:T.font }}
         />
@@ -2494,6 +2552,12 @@ if (vista === 'chat' && chatProducto) {
           {enviando?'...':'Enviar'}
         </button>
       </div>
+      <ModalEncuentro
+        abierto={encuentroAbierto}
+        ciudad={(perfilData && (perfilData.ciudad || perfilData.provincia)) || ''}
+        onProponer={(texto: string)=>{ setChatTexto(texto); setEncuentroAbierto(false) }}
+        onCerrar={()=>setEncuentroAbierto(false)}
+      />
       {modales}
     </div>
   )
